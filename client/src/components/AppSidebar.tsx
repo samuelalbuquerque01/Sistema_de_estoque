@@ -1,3 +1,4 @@
+// components/AppSidebar.tsx
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard,
@@ -13,6 +14,7 @@ import {
   BarChart3,
   LogOut,
   User,
+  TrendingUp
 } from "lucide-react";
 import {
   Sidebar,
@@ -28,6 +30,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "./AuthContext";
 
 const menuItems = [
   { title: "Dashboard", icon: LayoutDashboard, path: "/" },
@@ -43,8 +46,8 @@ const cadastrosItems = [
 ];
 
 const operacionalItems = [
+  { title: "Movimentações", icon: TrendingUp, path: "/movimentacoes" },
   { title: "Importação", icon: Upload, path: "/importacao" },
-  { title: "Histórico", icon: History, path: "/historico" },
   { title: "Inventário", icon: ClipboardList, path: "/inventario" },
 ];
 
@@ -54,9 +57,21 @@ const relatoriosItems = [
 
 export default function AppSidebar() {
   const [location] = useLocation();
+  const { user, logout } = useAuth();
 
   const handleLogout = () => {
-    console.log('Logout clicked'); //todo: remove mock functionality
+    if (confirm('Tem certeza que deseja sair?')) {
+      logout();
+    }
+  };
+
+  const getUserInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(part => part[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
   };
 
   return (
@@ -150,12 +165,16 @@ export default function AppSidebar() {
         <div className="flex items-center gap-3 mb-3">
           <Avatar className="h-9 w-9">
             <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-              AD
+              {user ? getUserInitials(user.name) : 'AD'}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">Administrador</p>
-            <p className="text-xs text-sidebar-foreground/60 truncate">admin@stockmaster.com</p>
+            <p className="text-sm font-medium truncate">
+              {user ? user.name : 'Administrador'}
+            </p>
+            <p className="text-xs text-sidebar-foreground/60 truncate">
+              {user ? user.email : 'admin@stockmaster.com'}
+            </p>
           </div>
         </div>
         <Button 

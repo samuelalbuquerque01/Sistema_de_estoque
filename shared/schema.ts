@@ -1,5 +1,6 @@
+// shared/schema.ts - VERSÃO COMPLETA CORRIGIDA
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, decimal, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, decimal, timestamp, boolean, json } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -66,13 +67,55 @@ export const inventoryCounts = pgTable("inventory_counts", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// 🔥 TABELA CORRIGIDA: Relatórios (sem foreign key obrigatória)
+export const reports = pgTable("reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  type: text("type").notNull(), // 'products', 'low_stock', 'movements', 'inventory', 'financial', 'location'
+  format: text("format").notNull(), // 'pdf', 'excel', 'csv'
+  filters: json("filters"), // JSON com filtros aplicados
+  generatedBy: varchar("generated_by"), // 🔥 REMOVIDA A REFERÊNCIA .references(() => users.id)
+  createdAt: timestamp("created_at").defaultNow(),
+  filePath: text("file_path"), // Caminho do arquivo gerado
+  fileSize: integer("file_size"), // Tamanho do arquivo em bytes
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
+
 export const insertCategorySchema = createInsertSchema(categories).omit({ id: true });
+
 export const insertLocationSchema = createInsertSchema(locations).omit({ id: true });
-export const insertProductSchema = createInsertSchema(products).omit({ id: true });
-export const insertMovementSchema = createInsertSchema(movements).omit({ id: true, createdAt: true });
+
+export const insertProductSchema = createInsertSchema(products).omit({ id: true })
+  .extend({
+    quantity: z.coerce.number().min(0, "Quantidade deve ser maior ou igual a 0"),
+    minQuantity: z.coerce.number().min(0, "Quantidade mínima deve ser maior ou igual a 0"),
+    unitPrice: z.coerce.number().min(0, "Preço deve ser maior ou igual a 0"),
+  });
+
+export const insertMovementSchema = createInsertSchema(movements).omit({ id: true, createdAt: true })
+  .extend({
+    quantity: z.coerce.number().min(1, "Quantidade deve ser maior que 0"),
+  });
+
 export const insertInventorySchema = createInsertSchema(inventories).omit({ id: true, createdAt: true, finishedAt: true });
-export const insertInventoryCountSchema = createInsertSchema(inventoryCounts).omit({ id: true, createdAt: true });
+
+export const insertInventoryCountSchema = createInsertSchema(inventoryCounts).omit({ id: true, createdAt: true })
+  .extend({
+    expectedQuantity: z.coerce.number().min(0),
+    countedQuantity: z.coerce.number().min(0),
+    difference: z.coerce.number(),
+  });
+
+// 🔥 SCHEMA CORRIGIDO: Relatórios
+export const insertReportSchema = createInsertSchema(reports).omit({ 
+  id: true, 
+  createdAt: true,
+  fileSize: true 
+}).extend({
+  filters: z.any().optional(),
+  generatedBy: z.string().optional().nullable(), // 🔥 AGORA É OPCIONAL
+});
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -88,3 +131,5 @@ export type InsertInventory = z.infer<typeof insertInventorySchema>;
 export type Inventory = typeof inventories.$inferSelect;
 export type InsertInventoryCount = z.infer<typeof insertInventoryCountSchema>;
 export type InventoryCount = typeof inventoryCounts.$inferSelect;
+export type InsertReport = z.infer<typeof insertReportSchema>;
+export type Report = typeof reports.$inferSelect;

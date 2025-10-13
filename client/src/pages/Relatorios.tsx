@@ -1,4 +1,5 @@
-import { FileText, Download, TrendingDown, DollarSign, ClipboardList } from "lucide-react";
+// client/src/pages/Relatorios.tsx - VERSÃO FINAL (APENAS PDF NO FRONT)
+import { FileText, Download, TrendingDown, DollarSign, ClipboardList, MapPin, Calendar, BarChart3, Package } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,19 +10,30 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useState } from "react";
+import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
 
 interface ReportCardProps {
   title: string;
   description: string;
   icon: React.ReactNode;
-  onGenerate: (format: string) => void;
+  onGenerate: (period?: string) => void;
+  showPeriodFilter?: boolean;
 }
 
-function ReportCard({ title, description, icon, onGenerate }: ReportCardProps) {
-  const [format, setFormat] = useState("pdf");
+function ReportCard({ title, description, icon, onGenerate, showPeriodFilter = false }: ReportCardProps) {
+  const [period, setPeriod] = useState("30");
+
+  const handleGenerate = () => {
+    if (showPeriodFilter) {
+      onGenerate(period);
+    } else {
+      onGenerate();
+    }
+  };
 
   return (
-    <Card>
+    <Card className="h-full flex flex-col">
       <CardHeader>
         <div className="flex items-start gap-4">
           <div className="h-12 w-12 rounded-md bg-primary/10 flex items-center justify-center">
@@ -33,24 +45,30 @@ function ReportCard({ title, description, icon, onGenerate }: ReportCardProps) {
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">
-        <Select value={format} onValueChange={setFormat}>
-          <SelectTrigger data-testid={`select-format-${title.toLowerCase().replace(/\s+/g, '-')}`}>
-            <SelectValue placeholder="Formato" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="pdf">PDF</SelectItem>
-            <SelectItem value="excel">Excel</SelectItem>
-            <SelectItem value="csv">CSV</SelectItem>
-          </SelectContent>
-        </Select>
+      <CardContent className="space-y-3 flex-1 flex flex-col justify-end">
+        <div className="space-y-2">
+          {showPeriodFilter && (
+            <Select value={period} onValueChange={setPeriod}>
+              <SelectTrigger>
+                <SelectValue placeholder="Período" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7">Últimos 7 dias</SelectItem>
+                <SelectItem value="30">Últimos 30 dias</SelectItem>
+                <SelectItem value="90">Últimos 3 meses</SelectItem>
+                <SelectItem value="365">Último ano</SelectItem>
+                <SelectItem value="all">Todo o período</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+        
         <Button 
           className="w-full" 
-          onClick={() => onGenerate(format)}
-          data-testid={`button-generate-${title.toLowerCase().replace(/\s+/g, '-')}`}
+          onClick={handleGenerate}
         >
           <Download className="h-4 w-4 mr-2" />
-          Gerar Relatório
+          Gerar Relatório PDF
         </Button>
       </CardContent>
     </Card>
@@ -58,60 +76,197 @@ function ReportCard({ title, description, icon, onGenerate }: ReportCardProps) {
 }
 
 export default function Relatorios() {
-  const handleGenerate = (reportName: string, format: string) => {
-    console.log(`Gerando relatório: ${reportName} - Formato: ${format}`);
+  const [isGenerating, setIsGenerating] = useState<string | null>(null);
+
+  // Buscar estatísticas dos relatórios
+  const { data: stats, refetch: refetchStats } = useQuery({
+    queryKey: ['/api/reports/stats'],
+  });
+
+  const handleGenerate = async (reportName: string, period?: string) => {
+    setIsGenerating(reportName);
+    
+    try {
+      const response = await fetch('/api/reports/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          reportType: reportName,
+          format: 'pdf', // 🔥 SEMPRE PDF
+          period: period || 'all'
+        })
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = `relatorio_${reportName.toLowerCase().replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+        
+        if (contentDisposition) {
+          const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+          if (filenameMatch) {
+            filename = filenameMatch[1];
+          }
+        }
+        
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        toast.success(`Relatório "${reportName}" gerado com sucesso!`, {
+          description: 'Documento PDF pronto para download'
+        });
+
+        refetchStats();
+        
+      } else {
+        const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
+        throw new Error(errorData.error || 'Erro ao gerar relatório');
+      }
+    } catch (error) {
+      console.error('Erro ao gerar relatório:', error);
+      toast.error(`Erro ao gerar relatório: ${error instanceof Error ? error.message : 'Tente novamente'}`);
+    } finally {
+      setIsGenerating(null);
+    }
   };
+
+  const reportCards = [
+    {
+      title: "Relatório de Produtos",
+      description: "Lista completa de todos os produtos cadastrados com informações detalhadas",
+      icon: <Package className="h-6 w-6 text-blue-600" />,
+      onGenerate: (period?: string) => handleGenerate('Produtos', period),
+    },
+    {
+      title: "Estoque Baixo",
+      description: "Produtos que atingiram ou estão abaixo do estoque mínimo definido",
+      icon: <TrendingDown className="h-6 w-6 text-red-600" />,
+      onGenerate: (period?: string) => handleGenerate('Estoque Baixo', period),
+    },
+    {
+      title: "Valor do Estoque",
+      description: "Análise financeira com valor total do estoque por categorias",
+      icon: <DollarSign className="h-6 w-6 text-green-600" />,
+      onGenerate: (period?: string) => handleGenerate('Valor Estoque', period),
+    },
+    {
+      title: "Movimentações",
+      description: "Histórico completo de entradas, saídas e ajustes de estoque",
+      icon: <ClipboardList className="h-6 w-6 text-purple-600" />,
+      onGenerate: (period?: string) => handleGenerate('Movimentações', period),
+      showPeriodFilter: true,
+    },
+    {
+      title: "Inventários",
+      description: "Relatório de inventários realizados com análise de divergências",
+      icon: <Calendar className="h-6 w-6 text-orange-600" />,
+      onGenerate: (period?: string) => handleGenerate('Inventários', period),
+      showPeriodFilter: true,
+    },
+    {
+      title: "Produtos por Local",
+      description: "Distribuição espacial dos produtos por local de armazenamento",
+      icon: <MapPin className="h-6 w-6 text-indigo-600" />,
+      onGenerate: (period?: string) => handleGenerate('Produtos por Local', period),
+    },
+  ];
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Relatórios</h1>
-        <p className="text-muted-foreground mt-1">Gerar relatórios e exportar dados do sistema</p>
+        <p className="text-muted-foreground mt-1">
+          Gerar relatórios detalhados em formato PDF
+        </p>
       </div>
 
+      {/* Estatísticas Rápidas */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total de Relatórios</p>
+                <p className="text-2xl font-bold">{stats?.totalReports || 0}</p>
+              </div>
+              <BarChart3 className="h-8 w-8 text-muted-foreground/50" />
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Tipos de Relatório</p>
+                <p className="text-2xl font-bold">{Object.keys(stats?.reportsByType || {}).length}</p>
+              </div>
+              <FileText className="h-8 w-8 text-muted-foreground/50" />
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Última Geração</p>
+                <p className="text-sm font-medium">
+                  {stats?.lastGenerated ? new Date(stats.lastGenerated).toLocaleDateString('pt-BR') : '-'}
+                </p>
+              </div>
+              <Calendar className="h-8 w-8 text-muted-foreground/50" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Cards de Relatórios */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <ReportCard
-          title="Relatório de Produtos"
-          description="Lista completa de todos os produtos cadastrados com suas informações"
-          icon={<FileText className="h-6 w-6 text-primary" />}
-          onGenerate={(format) => handleGenerate('Produtos', format)}
-        />
-
-        <ReportCard
-          title="Estoque Baixo"
-          description="Produtos que atingiram ou estão abaixo da quantidade mínima"
-          icon={<TrendingDown className="h-6 w-6 text-primary" />}
-          onGenerate={(format) => handleGenerate('Estoque Baixo', format)}
-        />
-
-        <ReportCard
-          title="Valor do Estoque"
-          description="Relatório financeiro com valor total do estoque por categoria"
-          icon={<DollarSign className="h-6 w-6 text-primary" />}
-          onGenerate={(format) => handleGenerate('Valor Estoque', format)}
-        />
-
-        <ReportCard
-          title="Movimentações"
-          description="Histórico detalhado de entradas, saídas e ajustes de estoque"
-          icon={<ClipboardList className="h-6 w-6 text-primary" />}
-          onGenerate={(format) => handleGenerate('Movimentações', format)}
-        />
-
-        <ReportCard
-          title="Inventários"
-          description="Resumo de todos os inventários realizados e suas divergências"
-          icon={<ClipboardList className="h-6 w-6 text-primary" />}
-          onGenerate={(format) => handleGenerate('Inventários', format)}
-        />
-
-        <ReportCard
-          title="Produtos por Local"
-          description="Distribuição de produtos por local de armazenamento"
-          icon={<FileText className="h-6 w-6 text-primary" />}
-          onGenerate={(format) => handleGenerate('Produtos por Local', format)}
-        />
+        {reportCards.map((card, index) => (
+          <ReportCard
+            key={index}
+            title={card.title}
+            description={card.description}
+            icon={card.icon}
+            onGenerate={card.onGenerate}
+            showPeriodFilter={card.showPeriodFilter}
+          />
+        ))}
       </div>
+
+      {/* Loading Overlay */}
+      {isGenerating && (
+        <div className="fixed inset-0 bg-background/80 flex items-center justify-center z-50">
+          <div className="bg-card p-6 rounded-lg shadow-lg border flex items-center gap-3">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+            <p>Gerando {isGenerating}...</p>
+            <p className="text-sm text-muted-foreground">Isso pode levar alguns segundos</p>
+          </div>
+        </div>
+      )}
+
+      {/* Informações sobre PDF */}
+      <Card>
+        <CardContent className="p-6">
+          <h3 className="font-semibold mb-3">Sobre os Relatórios PDF</h3>
+          <ul className="text-sm text-muted-foreground space-y-2">
+            <li>• Documentos seguros e não editáveis</li>
+            <li>• Layout profissional para impressão</li>
+            <li>• Dados organizados e formatados</li>
+            <li>• Compatível com todos os dispositivos</li>
+          </ul>
+        </CardContent>
+      </Card>
     </div>
   );
 }

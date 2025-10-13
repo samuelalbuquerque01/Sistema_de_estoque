@@ -1,3 +1,4 @@
+// pages/Login.tsx
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { Package, Lock, User } from "lucide-react";
@@ -5,18 +6,60 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/components/AuthContext"; // ← ADICIONE ESTA IMPORT
 
 export default function Login() {
   const [, setLocation] = useLocation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const { login } = useAuth(); // ← USE O HOOK DO AUTH
+
+  const loginMutation = useMutation({
+    mutationFn: async (credentials: { username: string; password: string }) => {
+      const response = await apiRequest('POST', '/api/auth/login', credentials);
+      return response.json();
+    },
+    onSuccess: (user) => {
+      console.log('Login bem-sucedido:', user);
+      login(user); // ← USE A FUNÇÃO LOGIN DO AUTH CONTEXT
+      setLocation('/');
+    },
+    onError: (error: Error) => {
+      console.error('Erro no login:', error);
+      alert('Erro no login: ' + error.message);
+    }
+  });
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    //todo: remove mock functionality
-    console.log('Login:', { username, password });
-    setLocation('/');
+    if (!username || !password) {
+      alert('Por favor, preencha usuário e senha');
+      return;
+    }
+    loginMutation.mutate({ username, password });
   };
+
+  // Criar usuário admin automaticamente (apenas para desenvolvimento)
+  const createAdminUser = async () => {
+    try {
+      await apiRequest('POST', '/api/auth/register', {
+        username: 'admin',
+        password: 'admin123',
+        name: 'Administrador',
+        email: 'admin@stockmaster.com'
+      });
+      console.log('Usuário admin criado com sucesso!');
+    } catch (error) {
+      console.log('Usuário admin já existe ou erro ao criar');
+    }
+  };
+
+  // Executar na primeira vez
+  useState(() => {
+    createAdminUser();
+  });
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -68,9 +111,19 @@ export default function Login() {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full" data-testid="button-login">
-                Entrar no Sistema
+              <Button 
+                type="submit" 
+                className="w-full" 
+                data-testid="button-login"
+                disabled={loginMutation.isPending}
+              >
+                {loginMutation.isPending ? "Entrando..." : "Entrar no Sistema"}
               </Button>
+
+              <div className="text-center text-sm text-muted-foreground">
+                <p>Usuário: <strong>admin</strong></p>
+                <p>Senha: <strong>admin123</strong></p>
+              </div>
             </form>
           </CardContent>
         </Card>
