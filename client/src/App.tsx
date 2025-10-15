@@ -1,4 +1,4 @@
-// client/src/App.tsx
+// client/src/App.tsx - VERSÃO COMPLETA COM CADASTRO E USUÁRIOS
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -8,6 +8,8 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import AppSidebar from "@/components/AppSidebar";
 import ThemeToggle from "@/components/ThemeToggle";
 import { AuthProvider, useAuth } from "@/components/AuthContext";
+
+// Páginas existentes
 import Dashboard from "@/pages/Dashboard";
 import Produtos from "@/pages/Produtos";
 import Equipamentos from "@/pages/Equipamentos";
@@ -20,8 +22,18 @@ import InventarioDetalhes from "@/pages/InventarioDetalhes";
 import Relatorios from "@/pages/Relatorios";
 import Importacao from "@/pages/Importacao";
 import Movimentacoes from "@/pages/Movimentacoes";
+import HistoricoImportacoes from "@/pages/HistoricoImportacoes";
 import Login from "@/pages/Login";
 import NotFound from "@/pages/not-found";
+
+// 🔥 NOVAS PÁGINAS DE CADASTRO
+import PaginaEscolhaCadastro from "@/pages/PaginaEscolhaCadastro";
+import CadastroEmpresa from "@/pages/CadastroEmpresa";
+import CadastroUsuario from "@/pages/CadastroUsuario";
+import VerificarEmail from "@/pages/VerificarEmail";
+
+// 🔥 NOVA PÁGINA: Gerenciamento de Usuários
+import GerenciarUsuarios from "@/pages/GerenciarUsuarios";
 
 function AuthenticatedLayout() {
   const style = {
@@ -50,6 +62,9 @@ function AuthenticatedLayout() {
               <Route path="/relatorios" component={Relatorios} />
               <Route path="/importacao" component={Importacao} />
               <Route path="/movimentacoes" component={Movimentacoes} />
+              <Route path="/historico-importacoes" component={HistoricoImportacoes} />
+              {/* 🔥 NOVA ROTA: Gerenciamento de Usuários */}
+              <Route path="/usuarios" component={GerenciarUsuarios} />
               <Route component={NotFound} />
             </Switch>
           </main>
@@ -85,7 +100,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function Router() {
   return (
     <Switch>
+      {/* 🔥 ROTAS PÚBLICAS (acessíveis sem login) */}
       <Route path="/login" component={Login} />
+      <Route path="/cadastro" component={PaginaEscolhaCadastro} />
+      <Route path="/cadastro/empresa" component={CadastroEmpresa} />
+      <Route path="/cadastro/usuario" component={CadastroUsuario} />
+      <Route path="/verificar-email" component={VerificarEmail} />
       
       {/* Rota específica para inventario/:id fora do AuthenticatedLayout */}
       <Route path="/inventario/:id">
@@ -109,7 +129,7 @@ function Router() {
         )}
       </Route>
 
-      {/* Todas as outras rotas usam o AuthenticatedLayout normal */}
+      {/* 🔥 TODAS AS OUTRAS ROTAS PROTEGIDAS */}
       <Route path="/">
         <ProtectedRoute>
           <AuthenticatedLayout />
@@ -161,6 +181,17 @@ function Router() {
         </ProtectedRoute>
       </Route>
       <Route path="/movimentacoes">
+        <ProtectedRoute>
+          <AuthenticatedLayout />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/historico-importacoes">
+        <ProtectedRoute>
+          <AuthenticatedLayout />
+        </ProtectedRoute>
+      </Route>
+      {/* 🔥 NOVA ROTA PROTEGIDA: Gerenciamento de Usuários */}
+      <Route path="/usuarios">
         <ProtectedRoute>
           <AuthenticatedLayout />
         </ProtectedRoute>

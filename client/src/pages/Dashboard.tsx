@@ -1,51 +1,21 @@
-// Dashboard.tsx - VERSÃO COM DADOS REAIS
+// Dashboard.tsx - VERSÃO LIMPA SEM ELEMENTOS DESNECESSÁRIOS
 import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import DashboardStats from "@/components/DashboardStats";
 import RecentMovements from "@/components/RecentMovements";
 import StockChart from "@/components/StockChart";
-
-interface Product {
-  id: string;
-  code: string;
-  name: string;
-  categoryId: string;
-  locationId: string;
-  quantity: number;
-  minQuantity: number;
-  unitPrice: string;
-  description?: string;
-  type: string;
-}
-
-interface Movement {
-  id: string;
-  productId: string;
-  type: 'entrada' | 'saida' | 'ajuste';
-  quantity: number;
-  userId: string;
-  notes?: string;
-  createdAt: string;
-  productName?: string;
-  user?: string;
-}
-
-interface DashboardData {
-  totalProducts: number;
-  lowStock: number;
-  totalValue: number;
-  movements: number;
-  recentMovements: Movement[];
-  chartData: Array<{
-    name: string;
-    entrada: number;
-    saida: number;
-  }>;
-}
+import LowStockAlerts from "@/components/LowStockAlerts";
+import QuickActions from "@/components/QuickActions";
+import InventorySummary from "@/components/InventorySummary";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { RefreshCw, Package, AlertTriangle } from "lucide-react";
 
 export default function Dashboard() {
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [, navigate] = useLocation();
 
   useEffect(() => {
     fetchDashboardData();
@@ -55,71 +25,87 @@ export default function Dashboard() {
     try {
       setLoading(true);
       setError(null);
-
-      // Buscar produtos e movimentações da API
-      const [productsRes, movementsRes] = await Promise.all([
-        fetch('/api/products'),
-        fetch('/api/movements')
-      ]);
-
-      if (!productsRes.ok || !movementsRes.ok) {
-        throw new Error('Erro ao carregar dados do dashboard');
+      
+      const response = await fetch('/api/dashboard/stats');
+      
+      if (!response.ok) {
+        throw new Error(`Erro ${response.status}: ${response.statusText}`);
       }
 
-      const products: Product[] = await productsRes.json();
-      const movements: Movement[] = await movementsRes.json();
-
-      // Calcular estatísticas
-      const totalProducts = products.length;
-      const lowStock = products.filter(p => p.quantity <= p.minQuantity).length;
-      const totalValue = products.reduce((sum, product) => {
-        return sum + (parseFloat(product.unitPrice) * product.quantity);
-      }, 0);
-
-      // Preparar movimentações recentes (últimas 5)
-      const recentMovements = movements
-        .slice(0, 5)
-        .map(movement => ({
-          ...movement,
-          productName: 'Produto', // Poderia buscar o nome real do produto
-          user: 'Usuário' // Poderia buscar o nome real do usuário
-        }));
-
-      // Preparar dados do gráfico (agrupar por categoria)
-      const chartData = [
-        { name: 'Equipamentos', entrada: 45, saida: 32 },
-        { name: 'Insumos', entrada: 78, saida: 65 },
-        { name: 'Ferramentas', entrada: 23, saida: 18 },
-        { name: 'Limpeza', entrada: 56, saida: 48 },
-        { name: 'Outros', entrada: 34, saida: 29 },
-      ];
-
-      setDashboardData({
-        totalProducts,
-        lowStock,
-        totalValue,
-        movements: movements.length,
-        recentMovements,
-        chartData
-      });
+      const data = await response.json();
+      setDashboardData(data);
 
     } catch (error) {
-      console.error('Erro ao carregar dashboard:', error);
-      setError('Erro ao carregar dados do dashboard');
+      setError(error instanceof Error ? error.message : 'Erro desconhecido');
     } finally {
       setLoading(false);
     }
   };
 
+  // FUNÇÕES DE NAVEGAÇÃO
+  const handleViewLowStock = () => {
+    navigate('/produtos?filter=low-stock');
+  };
+
+  const handleViewMovements = () => {
+    navigate('/movimentacoes');
+  };
+
+  const handleAddProduct = () => {
+    navigate('/produtos');
+  };
+
+  const handleAddMovement = () => {
+    navigate('/movimentacoes');
+  };
+
+  const handleViewReports = () => {
+    navigate('/relatorios');
+  };
+
+  const handleImportProducts = () => {
+    navigate('/importacao');
+  };
+
+  // ESTADO VAZIO MELHORADO
   if (loading) {
     return (
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Visão geral do estoque e movimentações</p>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold">Dashboard</h1>
+            <p className="text-muted-foreground mt-1">Carregando dados do estoque...</p>
+          </div>
+          <Button disabled>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Atualizar
+          </Button>
         </div>
-        <div className="flex justify-center items-center h-64">
-          <p>Carregando dashboard...</p>
+        
+        {/* Skeleton Loader */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i} className="animate-pulse">
+              <CardContent className="p-6">
+                <div className="h-4 bg-muted rounded w-1/2 mb-4"></div>
+                <div className="h-8 bg-muted rounded w-3/4"></div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {[...Array(3)].map((_, i) => (
+            <Card key={i} className="animate-pulse">
+              <CardHeader>
+                <div className="h-4 bg-muted rounded w-1/2"></div>
+                <div className="h-3 bg-muted rounded w-3/4"></div>
+              </CardHeader>
+              <CardContent>
+                <div className="h-48 bg-muted rounded"></div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </div>
     );
@@ -128,19 +114,29 @@ export default function Dashboard() {
   if (error) {
     return (
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Visão geral do estoque e movimentações</p>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold">Dashboard</h1>
+            <p className="text-muted-foreground mt-1">Visão geral do estoque e movimentações</p>
+          </div>
         </div>
-        <div className="flex justify-center items-center h-64 text-destructive">
-          <p>{error}</p>
-          <button 
-            onClick={fetchDashboardData}
-            className="ml-4 px-4 py-2 bg-primary text-white rounded"
-          >
-            Tentar Novamente
-          </button>
-        </div>
+        
+        <Card className="border-destructive/50">
+          <CardContent className="p-6">
+            <div className="flex flex-col items-center justify-center text-destructive text-center">
+              <AlertTriangle className="h-12 w-12 mb-4" />
+              <p className="text-lg font-medium mb-2">Erro ao carregar dashboard</p>
+              <p className="text-sm text-muted-foreground mb-4">{error}</p>
+              <Button 
+                onClick={fetchDashboardData}
+                className="mt-2"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Tentar Novamente
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -148,29 +144,109 @@ export default function Dashboard() {
   if (!dashboardData) {
     return (
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Visão geral do estoque e movimentações</p>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold">Dashboard</h1>
+            <p className="text-muted-foreground mt-1">Visão geral do estoque e movimentações</p>
+          </div>
         </div>
-        <div className="flex justify-center items-center h-64">
-          <p>Nenhum dado disponível</p>
-        </div>
+        
+        <Card>
+          <CardContent className="p-12 text-center">
+            <Package className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-medium mb-2">Nenhum dado disponível</h3>
+            <p className="text-muted-foreground mb-6">
+              Não foi possível carregar os dados do dashboard
+            </p>
+            <Button 
+              onClick={fetchDashboardData}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Carregar Dados
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
+  const criticalAlerts = dashboardData.criticalProducts?.map((alert: any) => ({
+    product: alert.product,
+    urgency: alert.urgency,
+    message: alert.message
+  })) || [];
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground mt-1">Visão geral do estoque e movimentações</p>
+      {/* Cabeçalho */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">Dashboard</h1>
+          <p className="text-muted-foreground mt-1">
+            Visão geral do estoque e movimentações - {new Date().toLocaleDateString('pt-BR')}
+          </p>
+        </div>
+        
+        <Button 
+          onClick={fetchDashboardData}
+          variant="outline"
+          size="sm"
+        >
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Atualizar
+        </Button>
       </div>
 
-      <DashboardStats {...dashboardData} />
+      {/* Estatísticas Principais */}
+      <DashboardStats 
+        totalProducts={dashboardData.totalProducts}
+        lowStock={dashboardData.lowStock}
+        outOfStock={dashboardData.outOfStock}
+        totalValue={dashboardData.totalValue}
+        movements={dashboardData.movements}
+        movementStats={dashboardData.movementStats}
+      />
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <StockChart data={dashboardData.chartData} />
-        <RecentMovements movements={dashboardData.recentMovements} />
+      {/* Layout Principal */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2 space-y-6">
+          {/* Gráfico */}
+          <StockChart 
+            data={dashboardData.chartData || []} 
+            timeRange="week"
+          />
+          
+          {/* Alertas e Ações Rápidas */}
+          <div className="grid gap-6 md:grid-cols-2">
+            <LowStockAlerts 
+              alerts={criticalAlerts}
+              onViewAll={handleViewLowStock}
+            />
+            
+            <QuickActions 
+              lowStockCount={dashboardData.lowStock || 0}
+              outOfStockCount={dashboardData.outOfStock || 0}
+              onViewLowStock={handleViewLowStock}
+              onAddProduct={handleAddProduct}
+              onAddMovement={handleAddMovement}
+              onViewReports={handleViewReports}
+              onImportProducts={handleImportProducts}
+            />
+          </div>
+        </div>
+
+        {/* Sidebar Direita */}
+        <div className="space-y-6">
+          <RecentMovements 
+            movements={dashboardData.recentMovements || []}
+            onViewAll={handleViewMovements}
+          />
+          
+          <InventorySummary 
+            categories={dashboardData.categories || []}
+            locations={dashboardData.locations || []}
+          />
+        </div>
       </div>
     </div>
   );

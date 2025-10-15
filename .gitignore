@@ -145,9 +145,11 @@ server/public
 *.crt
 *.cer
 
-# PDF and XML files (se tiver samples de teste)
-*.pdf
-*.xml
+# PDF and XML files (apenas arquivos temporários de teste)
+test*.pdf
+test*.xml
+temp/*.pdf
+temp/*.xml
 
 # Cache directories
 .cache/

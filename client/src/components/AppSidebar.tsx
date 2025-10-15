@@ -14,7 +14,8 @@ import {
   BarChart3,
   LogOut,
   User,
-  TrendingUp
+  TrendingUp,
+  Users // 🔥 NOVO ICONE
 } from "lucide-react";
 import {
   Sidebar,
@@ -48,6 +49,7 @@ const cadastrosItems = [
 const operacionalItems = [
   { title: "Movimentações", icon: TrendingUp, path: "/movimentacoes" },
   { title: "Importação", icon: Upload, path: "/importacao" },
+  { title: "Histórico de Importações", icon: History, path: "/historico-importacoes" },
   { title: "Inventário", icon: ClipboardList, path: "/inventario" },
 ];
 
@@ -55,9 +57,17 @@ const relatoriosItems = [
   { title: "Relatórios", icon: BarChart3, path: "/relatorios" },
 ];
 
+// 🔥 NOVO GRUPO: Administração (apenas para admins)
+const administracaoItems = [
+  { title: "Usuários", icon: Users, path: "/usuarios" },
+];
+
 export default function AppSidebar() {
   const [location] = useLocation();
   const { user, logout } = useAuth();
+
+  // 🔥 Verificar se usuário pode gerenciar usuários
+  const canManageUsers = user?.role === 'super_admin' || user?.role === 'admin';
 
   const handleLogout = () => {
     if (confirm('Tem certeza que deseja sair?')) {
@@ -72,6 +82,15 @@ export default function AppSidebar() {
       .join('')
       .toUpperCase()
       .slice(0, 2);
+  };
+
+  const getRoleBadge = (role: string) => {
+    const roles = {
+      'super_admin': 'Super Admin',
+      'admin': 'Administrador', 
+      'user': 'Usuário'
+    };
+    return roles[role as keyof typeof roles] || 'Usuário';
   };
 
   return (
@@ -159,6 +178,27 @@ export default function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* 🔥 NOVO GRUPO: ADMINISTRAÇÃO (apenas para admins) */}
+        {canManageUsers && (
+          <SidebarGroup>
+            <SidebarGroupLabel>ADMINISTRAÇÃO</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {administracaoItems.map((item) => (
+                  <SidebarMenuItem key={item.path}>
+                    <SidebarMenuButton asChild isActive={location === item.path}>
+                      <Link href={item.path} data-testid={`link-${item.title.toLowerCase()}`}>
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-4">
@@ -175,6 +215,11 @@ export default function AppSidebar() {
             <p className="text-xs text-sidebar-foreground/60 truncate">
               {user ? user.email : 'admin@stockmaster.com'}
             </p>
+            {user && (
+              <p className="text-xs text-sidebar-foreground/40 truncate">
+                {getRoleBadge(user.role)}
+              </p>
+            )}
           </div>
         </div>
         <Button 

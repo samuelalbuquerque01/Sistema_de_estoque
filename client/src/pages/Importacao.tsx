@@ -1,9 +1,20 @@
-// Importacao.tsx - Versão com Download da SEFAZ
-import { useState } from "react";
-import { Upload, FileText, Check, X, Download, Package, ExternalLink } from "lucide-react";
+// Importacao.tsx - Versão Corrigida e Melhorada
+import { useState, useRef } from "react";
+import { 
+  Upload, 
+  FileText, 
+  Check, 
+  X, 
+  Download, 
+  Package, 
+  ExternalLink,
+  AlertTriangle,
+  Info
+} from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 
 interface ImportHistory {
@@ -13,75 +24,150 @@ interface ImportHistory {
   productsFound: number;
   supplier: string;
   nfeNumber: string;
-  nfeKey: string; // Chave de acesso da NFe
+  nfeKey: string;
   date: Date;
+  errorMessage?: string;
+}
+
+interface ProcessResult {
+  productsProcessed: number;
+  nfeData: {
+    supplier: string;
+    documentNumber: string;
+    accessKey: string;
+    emissionDate?: string;
+    totalValue?: number;
+  };
 }
 
 export default function Importacao() {
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [importHistory, setImportHistory] = useState<ImportHistory[]>([]);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const processFile = async (file: File) => {
+  const validateXmlFile = (file: File): boolean => {
+    // Validações mais robustas
     if (!file.name.toLowerCase().endsWith('.xml')) {
-      toast.error('Apenas arquivos XML de nota fiscal são suportados');
-      return;
+      toast.error('Apenas arquivos XML são suportados');
+      return false;
     }
 
+    if (file.size === 0) {
+      toast.error('O arquivo está vazio');
+      return false;
+    }
+
+    if (file.size > 10 * 1024 * 1024) { // 10MB limite
+      toast.error('Arquivo muito grande. Máximo 10MB permitido.');
+      return false;
+    }
+
+    return true;
+  };
+
+  const processFile = async (file: File) => {
+    if (!validateXmlFile(file)) return;
+
     setIsProcessing(true);
+    setUploadProgress(0);
+
+    const importId = Date.now().toString();
+    
+    // Adicionar item de histórico como "processando"
+    const processingImport: ImportHistory = {
+      id: importId,
+      fileName: file.name,
+      status: 'processando',
+      productsFound: 0,
+      supplier: 'Processando...',
+      nfeNumber: '...',
+      nfeKey: '',
+      date: new Date(),
+    };
+
+    setImportHistory(prev => [processingImport, ...prev]);
 
     try {
       const formData = new FormData();
       formData.append('file', file);
+
+      // Simular progresso de upload
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 200);
 
       const response = await fetch('/api/import/xml', {
         method: 'POST',
         body: formData,
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        
-        const newImport: ImportHistory = {
-          id: Date.now().toString(),
-          fileName: file.name,
-          status: 'processado',
-          productsFound: result.productsProcessed,
-          supplier: result.nfeData.supplier,
-          nfeNumber: result.nfeData.documentNumber,
-          nfeKey: result.nfeData.accessKey, // Chave de acesso para SEFAZ
-          date: new Date(),
-        };
+      clearInterval(progressInterval);
+      setUploadProgress(100);
 
-        setImportHistory(prev => [newImport, ...prev]);
-        toast.success(`${result.productsProcessed} produtos importados da nota fiscal ${result.nfeData.documentNumber}`);
-      } else {
-        const error = await response.json();
-        throw new Error(error.error || 'Erro ao processar nota fiscal');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Erro ${response.status}: ${response.statusText}`);
       }
+
+      const result: ProcessResult = await response.json();
+      
+      // Atualizar histórico com sucesso
+      const successImport: ImportHistory = {
+        ...processingImport,
+        status: 'processado',
+        productsFound: result.productsProcessed,
+        supplier: result.nfeData.supplier,
+        nfeNumber: result.nfeData.documentNumber,
+        nfeKey: result.nfeData.accessKey,
+      };
+
+      setImportHistory(prev => 
+        prev.map(item => item.id === importId ? successImport : item)
+      );
+
+      toast.success(`${result.productsProcessed} produtos importados da nota fiscal ${result.nfeData.documentNumber}`);
+
     } catch (error) {
+      // Atualizar histórico com erro
       const failedImport: ImportHistory = {
-        id: Date.now().toString(),
-        fileName: file.name,
+        ...processingImport,
         status: 'erro',
         productsFound: 0,
         supplier: 'N/A',
         nfeNumber: 'N/A',
         nfeKey: '',
-        date: new Date(),
+        errorMessage: error instanceof Error ? error.message : 'Erro desconhecido',
       };
 
-      setImportHistory(prev => [failedImport, ...prev]);
+      setImportHistory(prev => 
+        prev.map(item => item.id === importId ? failedImport : item)
+      );
+
       toast.error(`Erro na importação: ${error instanceof Error ? error.message : 'Tente novamente'}`);
     } finally {
       setIsProcessing(false);
+      setUploadProgress(0);
+      
+      // Limpar input file
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
-  // 🔥 FUNÇÃO PARA BAIXAR DA SEFAZ
   const downloadFromSefaz = async (nfeKey: string, fileName: string) => {
     try {
-      const response = await fetch(`/api/invoices/download`, {
+      toast.info('Iniciando download da SEFAZ...');
+      
+      const response = await fetch('/api/invoices/download', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -89,49 +175,62 @@ export default function Importacao() {
         body: JSON.stringify({ nfeKey }),
       });
 
-      if (response.ok) {
-        const blob = await response.blob();
-        
-        // Verificar se é um PDF ou XML
-        const contentType = response.headers.get('content-type');
-        const extension = contentType?.includes('pdf') ? 'pdf' : 'xml';
-        
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `nota_fiscal_${nfeKey}.${extension}`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-        
-        toast.success('Nota fiscal baixada da SEFAZ');
-      } else {
-        const error = await response.json();
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
         throw new Error(error.error || 'Erro ao baixar da SEFAZ');
       }
+
+      const blob = await response.blob();
+      
+      if (blob.size === 0) {
+        throw new Error('Arquivo vazio recebido da SEFAZ');
+      }
+
+      const contentType = response.headers.get('content-type');
+      const extension = contentType?.includes('pdf') ? 'pdf' : 
+                       contentType?.includes('xml') ? 'xml' : 'bin';
+      
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `nota_fiscal_${nfeKey}.${extension}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast.success('Nota fiscal baixada com sucesso!');
     } catch (error) {
+      console.error('Erro no download:', error);
       toast.error(`Erro ao baixar: ${error instanceof Error ? error.message : 'Tente novamente'}`);
     }
   };
 
-  // 🔥 FUNÇÃO PARA ABRIR CONSULTA PÚBLICA
   const openSefazConsulta = (nfeKey: string) => {
-    // URL de consulta pública da SEFAZ (exemplo)
-    const sefazUrl = `https://www.nfe.fazenda.gov.br/portal/consulta.aspx?tipoConsulta=completa&tipoConteudo=XbSeqxE8pl8=&chave=${nfeKey}`;
-    window.open(sefazUrl, '_blank');
+    // URL oficial de consulta da SEFAZ
+    const sefazUrl = `https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConteudo=XbSeqxE8pl8=&chave=${nfeKey}`;
+    window.open(sefazUrl, '_blank', 'noopener,noreferrer');
   };
 
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
+    
     const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) await processFile(files[0]);
+    if (files.length > 0) {
+      if (files.length > 1) {
+        toast.warning('Apenas um arquivo por vez é permitido');
+        return;
+      }
+      await processFile(files[0]);
+    }
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (files && files.length > 0) await processFile(files[0]);
+    if (files && files.length > 0) {
+      await processFile(files[0]);
+    }
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -139,7 +238,42 @@ export default function Importacao() {
     setIsDragging(true);
   };
 
-  const handleDragLeave = () => setIsDragging(false);
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    
+    // Só sai do estado de drag se o mouse sair da área do dropzone
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+    setIsDragging(false);
+  };
+
+  const clearHistory = () => {
+    if (confirm('Deseja limpar todo o histórico de importações?')) {
+      setImportHistory([]);
+      toast.info('Histórico limpo');
+    }
+  };
+
+  const getStatusBadge = (status: ImportHistory['status'], errorMessage?: string) => {
+    switch (status) {
+      case 'processando':
+        return <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+          <div className="animate-spin h-3 w-3 mr-1 border-2 border-blue-800 border-t-transparent rounded-full" />
+          Processando
+        </Badge>;
+      case 'processado':
+        return <Badge className="bg-green-500 text-white">
+          <Check className="h-3 w-3 mr-1" />
+          Processado
+        </Badge>;
+      case 'erro':
+        return <Badge variant="destructive" title={errorMessage}>
+          <X className="h-3 w-3 mr-1" />
+          Erro
+        </Badge>;
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -155,97 +289,135 @@ export default function Importacao() {
         <CardHeader>
           <CardTitle>Upload de Nota Fiscal</CardTitle>
           <CardDescription>
-            Faça upload do XML da NFe para importar produtos e obter acesso à nota na SEFAZ
+            Faça upload do XML da NFe para importar produtos automaticamente
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div
-            className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
-              isDragging ? 'border-primary bg-primary/5' : 'border-border'
-            } ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`border-2 border-dashed rounded-lg p-8 text-center transition-all ${
+              isDragging 
+                ? 'border-primary bg-primary/10 scale-[1.02]' 
+                : 'border-border hover:border-primary/50'
+            } ${isProcessing ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
+            onClick={() => !isProcessing && fileInputRef.current?.click()}
           >
             <div className="flex flex-col items-center gap-4">
               {isProcessing ? (
-                <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary"></div>
+                <>
+                  <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary"></div>
+                  {uploadProgress > 0 && (
+                    <div className="w-full max-w-xs space-y-2">
+                      <Progress value={uploadProgress} className="h-2" />
+                      <p className="text-sm text-muted-foreground">
+                        {uploadProgress < 100 ? 'Processando...' : 'Finalizando...'}
+                      </p>
+                    </div>
+                  )}
+                </>
               ) : (
-                <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Upload className="h-8 w-8 text-primary" />
-                </div>
+                <>
+                  <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Upload className="h-8 w-8 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-lg font-medium">
+                      {isDragging ? 'Solte o arquivo aqui' : 'Clique ou arraste o XML da NFe'}
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Suporte para arquivos XML de nota fiscal eletrônica
+                    </p>
+                  </div>
+                </>
               )}
-              <div>
-                <p className="text-lg font-medium">
-                  {isProcessing ? 'Processando nota fiscal...' : 'Arraste o XML da NFe aqui'}
-                </p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {isProcessing ? 'Extraindo dados para acesso à SEFAZ' : 'Formato XML - Extraímos a chave de acesso'}
-                </p>
-              </div>
-              <input
-                type="file"
-                id="file-input"
-                accept=".xml"
-                onChange={handleFileSelect}
-                disabled={isProcessing}
-                className="hidden"
-              />
-              <Button 
-                onClick={() => document.getElementById('file-input')?.click()}
-                disabled={isProcessing}
-              >
-                {isProcessing ? 'Processando...' : 'Selecionar XML da NFe'}
-              </Button>
             </div>
           </div>
-        </CardContent>
-      </Card>
+          
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xml,application/xml,text/xml"
+            onChange={handleFileSelect}
+            disabled={isProcessing}
+            className="hidden"
+          />
 
-      {/* Informações sobre SEFAZ */}
-      <Card className="bg-blue-50 border-blue-200">
-        <CardContent className="p-6">
-          <h3 className="font-semibold text-blue-800 mb-3">🔗 Acesso à SEFAZ</h3>
-          <ul className="text-sm text-blue-700 space-y-2">
-            <li>• <strong>Download Direto</strong>: Baixe a nota fiscal original da SEFAZ</li>
-            <li>• <strong>Consulta Pública</strong>: Verifique a autenticidade da nota</li>
-            <li>• <strong>DANFE</strong>: Obtenha a representação visual da nota</li>
-            <li>• <strong>Sem Armazenamento</strong>: Não guardamos suas notas fiscais</li>
-          </ul>
+          {/* Dicas de uso */}
+          <div className="mt-4 p-4 bg-muted/50 rounded-lg">
+            <div className="flex items-start gap-2">
+              <Info className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
+              <div className="text-sm">
+                <p className="font-medium mb-1">Dicas para importação:</p>
+                <ul className="space-y-1 text-muted-foreground">
+                  <li>• Use arquivos XML de NFe válidos</li>
+                  <li>• Verifique se a chave de acesso está correta</li>
+                  <li>• Certifique-se de estar conectado à internet para acesso à SEFAZ</li>
+                </ul>
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
       {/* Histórico com Botões da SEFAZ */}
       {importHistory.length > 0 && (
         <div>
-          <h2 className="text-xl font-semibold mb-4">Histórico de Importações</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold">Histórico de Importações</h2>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={clearHistory}
+              disabled={isProcessing}
+            >
+              Limpar Histórico
+            </Button>
+          </div>
+          
           <div className="space-y-3">
             {importHistory.map((item) => (
-              <Card key={item.id}>
+              <Card key={item.id} className={item.status === 'erro' ? 'border-destructive/50' : ''}>
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <FileText className="h-8 w-8 text-muted-foreground" />
-                      <div>
-                        <p className="font-medium">{item.fileName}</p>
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="flex-shrink-0">
+                        {item.status === 'erro' ? (
+                          <AlertTriangle className="h-8 w-8 text-destructive" />
+                        ) : (
+                          <FileText className="h-8 w-8 text-muted-foreground" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium truncate">{item.fileName}</p>
                         <div className="text-sm text-muted-foreground">
                           <p>Fornecedor: {item.supplier}</p>
                           <p>NFe: {item.nfeNumber} • {item.date.toLocaleDateString('pt-BR')}</p>
-                          <p className="text-xs font-mono bg-muted p-1 rounded mt-1">
-                            Chave: {item.nfeKey.substring(0, 20)}...
-                          </p>
+                          {item.nfeKey && (
+                            <p className="text-xs font-mono bg-muted p-1 rounded mt-1 truncate">
+                              Chave: {item.nfeKey}
+                            </p>
+                          )}
+                          {item.errorMessage && (
+                            <p className="text-xs text-destructive mt-1">
+                              Erro: {item.errorMessage}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {item.status === 'processado' ? (
+                    
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {getStatusBadge(item.status, item.errorMessage)}
+                      
+                      {item.status === 'processado' && (
                         <>
-                          <Badge className="bg-green-500 text-white">
+                          <Badge variant="secondary" className="bg-green-100 text-green-800">
                             <Package className="h-3 w-3 mr-1" />
                             {item.productsFound} produtos
                           </Badge>
                           
-                          {/* 🔥 BOTÃO DOWNLOAD SEFAZ */}
                           <Button
                             variant="default"
                             size="sm"
@@ -253,10 +425,9 @@ export default function Importacao() {
                             className="flex items-center gap-2"
                           >
                             <Download className="h-4 w-4" />
-                            Baixar NFe
+                            Baixar
                           </Button>
 
-                          {/* 🔥 BOTÃO CONSULTA SEFAZ */}
                           <Button
                             variant="outline"
                             size="sm"
@@ -267,11 +438,6 @@ export default function Importacao() {
                             Consultar
                           </Button>
                         </>
-                      ) : (
-                        <Badge variant="destructive">
-                          <X className="h-3 w-3 mr-1" />
-                          Erro
-                        </Badge>
                       )}
                     </div>
                   </div>
@@ -285,12 +451,16 @@ export default function Importacao() {
       {/* Estado vazio */}
       {importHistory.length === 0 && !isProcessing && (
         <Card>
-          <CardContent className="p-8 text-center">
-            <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <CardContent className="p-12 text-center">
+            <FileText className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium mb-2">Nenhuma nota fiscal importada</h3>
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground mb-6">
               Faça o upload do XML para importar produtos e obter acesso à nota na SEFAZ
             </p>
+            <Button onClick={() => fileInputRef.current?.click()}>
+              <Upload className="h-4 w-4 mr-2" />
+              Selecionar Primeiro XML
+            </Button>
           </CardContent>
         </Card>
       )}

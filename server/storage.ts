@@ -1,15 +1,30 @@
-// client/server/storage.ts - VERSÃO SEM DEBUG
-import { type User, type InsertUser, type Product, type InsertProduct, type Category, type Location, type InsertCategory, type InsertLocation, type Movement, type InsertMovement, type Inventory, type InsertInventory, type InventoryCount, type InsertInventoryCount, type Report, type InsertReport } from "@shared/schema";
+// server/storage.ts - VERSÃO COMPLETA COM PERMISSÕES
+import { 
+  type User, type InsertUser, type Product, type InsertProduct, 
+  type Category, type Location, type InsertCategory, type InsertLocation, 
+  type Movement, type InsertMovement, type Inventory, type InsertInventory, 
+  type InventoryCount, type InsertInventoryCount, type Report, type InsertReport,
+  type ImportHistory, type InsertImportHistory, type NfeProduct, type InsertNfeProduct,
+  type NfeData, type InsertNfeData,
+  type Empresa, type InsertEmpresa, type EmailVerificacao, type InsertEmailVerificacao,
+  type CadastroUsuario, type CadastroEmpresa
+} from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
-import { users, products, categories, locations, movements, inventories, inventoryCounts, reports } from "@shared/schema";
-import { eq, and, desc, sql, gte, lte } from "drizzle-orm";
+import { 
+  users, products, categories, locations, movements, inventories, 
+  inventoryCounts, reports, importHistory, nfeProducts, nfeData,
+  empresas, emailVerificacoes
+} from "@shared/schema";
+import { eq, and, desc, sql } from "drizzle-orm";
 
 export interface IStorage {
   // Métodos existentes
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  getUsers(): Promise<User[]>; // 🔥 MÉTODO ADICIONADO
   getProducts(): Promise<Product[]>;
   getProduct(id: string): Promise<Product | undefined>;
   createProduct(product: InsertProduct): Promise<Product>;
@@ -34,7 +49,7 @@ export interface IStorage {
   getInventoryCounts(inventoryId: string): Promise<InventoryCount[]>;
   createInventoryCount(count: InsertInventoryCount): Promise<InventoryCount>;
 
-  // MÉTODOS PARA RELATÓRIOS
+  // Métodos para relatórios
   createReport(report: InsertReport): Promise<Report>;
   getReports(): Promise<Report[]>;
   getReport(id: string): Promise<Report | undefined>;
@@ -47,43 +62,162 @@ export interface IStorage {
   getMovementsReport(startDate?: Date, endDate?: Date): Promise<any>;
   getInventoryReport(): Promise<any>;
   getProductsByLocationReport(): Promise<any>;
+
+  // Métodos para importação
+  createImportHistory(importData: InsertImportHistory): Promise<ImportHistory>;
+  getImportHistory(): Promise<ImportHistory[]>;
+  getImportHistoryById(id: string): Promise<ImportHistory | undefined>;
+  updateImportHistory(id: string, importData: Partial<InsertImportHistory>): Promise<ImportHistory>;
+  deleteImportHistory(id: string): Promise<void>;
+  
+  createNfeProduct(nfeProduct: InsertNfeProduct): Promise<NfeProduct>;
+  getNfeProductsByImport(importHistoryId: string): Promise<NfeProduct[]>;
+  
+  createNfeData(nfeData: InsertNfeData): Promise<NfeData>;
+  getNfeDataByImport(importHistoryId: string): Promise<NfeData | undefined>;
+  getNfeDataByAccessKey(accessKey: string): Promise<NfeData | undefined>;
+  
+  // Método para processar importação completa
+  processNfeImport(fileData: any, userId?: string): Promise<ImportHistory>;
+
+  // 🔥 MÉTODOS PARA CADASTRO
+  createEmpresa(empresa: InsertEmpresa): Promise<Empresa>;
+  getEmpresa(id: string): Promise<Empresa | undefined>;
+  getEmpresaByCnpj(cnpj: string): Promise<Empresa | undefined>;
+  getEmpresaByEmail(email: string): Promise<Empresa | undefined>;
+  updateEmpresa(id: string, empresa: Partial<InsertEmpresa>): Promise<Empresa>;
+  
+  createEmailVerificacao(verificacao: InsertEmailVerificacao): Promise<EmailVerificacao>;
+  getEmailVerificacao(token: string): Promise<EmailVerificacao | undefined>;
+  marcarEmailComoVerificado(userId: string): Promise<User>;
+  utilizarTokenVerificacao(token: string): Promise<EmailVerificacao>;
+  
+  // Métodos específicos para cadastro
+  cadastrarUsuarioIndividual(dados: CadastroUsuario): Promise<{user: User, token: string}>;
+  cadastrarEmpresa(dados: CadastroEmpresa): Promise<{empresa: Empresa, admin: User, token: string}>;
+
+  // 🔥 NOVOS MÉTODOS PARA PERMISSÕES
+  getUsersByEmpresa(empresaId: string): Promise<User[]>;
+  createUserForEmpresa(userData: any, empresaId: string, createdBy: string): Promise<User>;
+  updateUserRole(userId: string, role: 'super_admin' | 'admin' | 'user'): Promise<User>;
+  deleteUser(userId: string): Promise<void>;
+  canUserAccessModule(userId: string, module: string): Promise<boolean>;
+  getUserPermissions(userId: string): Promise<any>;
+  getEmpresaUsers(empresaId: string): Promise<User[]>;
 }
 
 export class DatabaseStorage implements IStorage {
+  // 🔥 MÉTODO ensureDefaultUser ATUALIZADO
   async ensureDefaultUser(): Promise<string> {
     try {
-      const existingUser = await this.getUserByUsername('admin');
+      const existingUser = await this.getUserByEmail('admin@stockmaster.com');
       if (existingUser) {
         return existingUser.id;
       }
+      
       const defaultUser: InsertUser = {
         username: 'admin',
         password: 'admin123',
         name: 'Administrador',
-        email: 'admin@stockmaster.com'
+        email: 'admin@stockmaster.com',
+        tipo: 'individual',
+        role: 'super_admin', // 🔥 AGORA É SUPER ADMIN
+        emailVerificado: true
       };
       const user = await this.createUser(defaultUser);
       return user.id;
     } catch (error) {
+      console.error('❌ Erro ao criar usuário padrão:', error);
       throw new Error('Erro ao criar usuário padrão');
     }
   }
 
+  // 🔥 MÉTODO getUsers ADICIONADO
+  async getUsers(): Promise<User[]> {
+    try {
+      console.log('📋 Buscando todos os usuários...');
+      const result = await db.select().from(users).orderBy(users.name);
+      console.log(`✅ ${result.length} usuários encontrados`);
+      return result;
+    } catch (error) {
+      console.error('❌ Erro ao buscar usuários:', error);
+      return [];
+    }
+  }
+
+  // 🔥 MÉTODOS EXISTENTES (MANTIDOS)
   async getUser(id: string): Promise<User | undefined> {
-    const result = await db.select().from(users).where(eq(users.id, id));
-    return result[0];
+    try {
+      const result = await db.select().from(users).where(eq(users.id, id));
+      return result[0];
+    } catch (error) {
+      console.error('❌ Erro ao buscar usuário por ID:', error);
+      return undefined;
+    }
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    const result = await db.select().from(users).where(eq(users.username, username));
-    return result[0];
+    try {
+      const result = await db.select().from(users).where(eq(users.username, username));
+      return result[0];
+    } catch (error) {
+      console.error('❌ Erro ao buscar usuário por username:', error);
+      return undefined;
+    }
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    try {
+      console.log(`🔍 Buscando usuário por email: ${email}`);
+      const result = await db.select().from(users).where(eq(users.email, email));
+      console.log(`📊 Resultado da busca:`, result.length > 0 ? 'Usuário encontrado' : 'Usuário não encontrado');
+      return result[0];
+    } catch (error) {
+      console.error('❌ Erro ao buscar usuário por email:', error);
+      try {
+        console.log('🔄 Tentando fallback: buscar por username...');
+        const result = await db.select().from(users).where(eq(users.username, email));
+        return result[0];
+      } catch (fallbackError) {
+        console.error('❌ Fallback também falhou:', fallbackError);
+        return undefined;
+      }
+    }
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    await db.insert(users).values(user);
-    return user;
+    try {
+      const id = randomUUID();
+      const user: User = { 
+        ...insertUser, 
+        id,
+        emailVerificado: insertUser.emailVerificado || false,
+        tokenVerificacao: null,
+        dataVerificacao: null,
+        createdAt: new Date()
+      };
+      
+      console.log(`👤 Criando usuário:`, { 
+        id: user.id, 
+        username: user.username, 
+        email: user.email,
+        role: user.role,
+        emailVerificado: user.emailVerificado 
+      });
+      
+      await db.insert(users).values(user);
+      
+      const createdUser = await this.getUser(id);
+      if (!createdUser) {
+        throw new Error("Usuário não encontrado após criação");
+      }
+      
+      console.log('✅ Usuário criado com sucesso');
+      return createdUser;
+    } catch (error) {
+      console.error('❌ Erro ao criar usuário:', error);
+      throw new Error("Erro ao criar usuário: " + (error instanceof Error ? error.message : 'Erro desconhecido'));
+    }
   }
 
   async getProducts(): Promise<Product[]> {
@@ -262,7 +396,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   // MÉTODOS PARA RELATÓRIOS
-
   async createReport(insertReport: InsertReport): Promise<Report> {
     const id = randomUUID();
     const report: Report = { 
@@ -295,7 +428,6 @@ export class DatabaseStorage implements IStorage {
       const categories = await this.getCategories();
       const locations = await this.getLocations();
 
-      // Dados enriquecidos para relatório
       const enrichedProducts = products.map(product => {
         const category = categories.find(c => c.id === product.categoryId);
         const location = locations.find(l => l.id === product.locationId);
@@ -406,7 +538,6 @@ export class DatabaseStorage implements IStorage {
         return sum + (price * product.quantity);
       }, 0);
 
-      // Valor por categoria
       const valorPorCategoria = categories.map(category => {
         const categoryProducts = products.filter(p => p.categoryId === category.id);
         const valorCategoria = categoryProducts.reduce((sum, product) => {
@@ -422,7 +553,6 @@ export class DatabaseStorage implements IStorage {
         };
       }).filter(item => item.quantidade_produtos > 0);
 
-      // Top 10 produtos mais valiosos
       const topProdutos = products
         .map(product => {
           const category = categories.find(c => c.id === product.categoryId);
@@ -467,7 +597,6 @@ export class DatabaseStorage implements IStorage {
       let movements = await this.getMovements();
       const products = await this.getProducts();
 
-      // Filtrar por período se especificado
       if (startDate || endDate) {
         movements = movements.filter(movement => {
           const movementDate = new Date(movement.createdAt);
@@ -633,6 +762,675 @@ export class DatabaseStorage implements IStorage {
 
     } catch (error) {
       throw new Error('Erro ao gerar relatório de produtos por local');
+    }
+  }
+
+  // MÉTODOS PARA IMPORTACAO DE XML
+  async createImportHistory(importData: InsertImportHistory): Promise<ImportHistory> {
+    const id = randomUUID();
+    const history: ImportHistory = { 
+      ...importData, 
+      id, 
+      createdAt: new Date(),
+      processedAt: importData.status === 'processado' ? new Date() : null,
+      productsFound: importData.productsFound || 0,
+      productsCreated: importData.productsCreated || 0,
+      productsUpdated: importData.productsUpdated || 0,
+      supplier: importData.supplier || 'Fornecedor não identificado',
+      supplierCnpj: importData.supplierCnpj || '',
+      supplierAddress: importData.supplierAddress || '',
+      nfeNumber: importData.nfeNumber || '',
+      nfeKey: importData.nfeKey || '',
+      emissionDate: importData.emissionDate || new Date(),
+      totalValue: importData.totalValue?.toString() || '0'
+    };
+    await db.insert(importHistory).values(history);
+    return history;
+  }
+
+  async getImportHistory(): Promise<ImportHistory[]> {
+    return await db.select().from(importHistory).orderBy(desc(importHistory.createdAt));
+  }
+
+  async getImportHistoryById(id: string): Promise<ImportHistory | undefined> {
+    const result = await db.select().from(importHistory).where(eq(importHistory.id, id));
+    return result[0];
+  }
+
+  async updateImportHistory(id: string, importData: Partial<InsertImportHistory>): Promise<ImportHistory> {
+    const updateData: any = { ...importData };
+    
+    if (importData.status === 'processado' && !updateData.processedAt) {
+      updateData.processedAt = new Date();
+    }
+    
+    await db.update(importHistory).set(updateData).where(eq(importHistory.id, id));
+    const updated = await this.getImportHistoryById(id);
+    if (!updated) throw new Error("Histórico de importação não encontrado");
+    return updated;
+  }
+
+  async deleteImportHistory(id: string): Promise<void> {
+    try {
+      await db.delete(nfeProducts).where(eq(nfeProducts.importHistoryId, id));
+      await db.delete(nfeData).where(eq(nfeData.importHistoryId, id));
+      await db.delete(importHistory).where(eq(importHistory.id, id));
+      console.log(`✅ Importação ${id} excluída com sucesso`);
+    } catch (error) {
+      console.error(`❌ Erro ao excluir importação ${id}:`, error);
+      throw new Error("Erro ao excluir importação");
+    }
+  }
+
+  async createNfeProduct(nfeProduct: InsertNfeProduct): Promise<NfeProduct> {
+    const id = randomUUID();
+    const product: NfeProduct = { 
+      ...nfeProduct, 
+      id,
+      unitPrice: nfeProduct.unitPrice?.toString() || '0',
+      totalValue: nfeProduct.totalValue?.toString() || '0',
+      code: nfeProduct.code || nfeProduct.nfeCode || 'N/A'
+    };
+    await db.insert(nfeProducts).values(product);
+    return product;
+  }
+
+  async getNfeProductsByImport(importHistoryId: string): Promise<NfeProduct[]> {
+    return await db.select().from(nfeProducts).where(eq(nfeProducts.importHistoryId, importHistoryId));
+  }
+
+  async createNfeData(nfeData: InsertNfeData): Promise<NfeData> {
+    const id = randomUUID();
+    const data: NfeData = { 
+      ...nfeData, 
+      id, 
+      createdAt: new Date(),
+      totalValue: nfeData.totalValue?.toString() || '0',
+      xmlContent: nfeData.xmlContent || '',
+      rawData: nfeData.rawData || {}
+    };
+    await db.insert(nfeData).values(data);
+    return data;
+  }
+
+  async getNfeDataByImport(importHistoryId: string): Promise<NfeData | undefined> {
+    const result = await db.select().from(nfeData).where(eq(nfeData.importHistoryId, importHistoryId));
+    return result[0];
+  }
+
+  async getNfeDataByAccessKey(accessKey: string): Promise<NfeData | undefined> {
+    const result = await db.select().from(nfeData).where(eq(nfeData.accessKey, accessKey));
+    return result[0];
+  }
+
+  async processNfeImport(fileData: any, userId?: string): Promise<ImportHistory> {
+    try {
+      console.log('💾 Tentando salvar importação no banco...');
+      
+      let importRecord;
+      
+      try {
+        importRecord = await this.createImportHistory({
+          fileName: fileData.fileName,
+          status: 'processando',
+          productsFound: fileData.products?.length || 0,
+          productsCreated: 0,
+          productsUpdated: 0,
+          supplier: fileData.supplier?.name || 'Processando...',
+          supplierCnpj: fileData.supplier?.cnpj || '',
+          supplierAddress: fileData.supplier?.address?.street || '',
+          nfeNumber: fileData.documentNumber || '...',
+          nfeKey: fileData.accessKey || '',
+          emissionDate: new Date(fileData.emissionDate || new Date()),
+          totalValue: fileData.totalValue || 0,
+          userId: userId,
+          errorMessage: null
+        });
+
+        console.log('✅ Histórico criado:', importRecord.id);
+
+        if (fileData.accessKey) {
+          try {
+            const nfeDataRecord = await this.createNfeData({
+              importHistoryId: importRecord.id,
+              accessKey: fileData.accessKey,
+              documentNumber: fileData.documentNumber,
+              supplier: fileData.supplier,
+              emissionDate: new Date(fileData.emissionDate),
+              totalValue: fileData.totalValue,
+              xmlContent: fileData.xmlContent,
+              rawData: fileData.rawData
+            });
+            console.log('✅ Dados da NFe salvos:', nfeDataRecord.id);
+          } catch (nfeError) {
+            console.error('❌ Erro ao salvar dados NFe:', nfeError);
+          }
+        }
+
+        if (fileData.products && fileData.products.length > 0) {
+          let savedProducts = 0;
+          for (const product of fileData.products) {
+            try {
+              await this.createNfeProduct({
+                importHistoryId: importRecord.id,
+                productId: null,
+                nfeCode: product.code,
+                code: product.code,
+                name: product.name,
+                quantity: product.quantity,
+                unitPrice: product.unitPrice,
+                unit: product.unit,
+                totalValue: product.totalValue,
+                nfeData: product
+              });
+              savedProducts++;
+            } catch (productError) {
+              console.error('❌ Erro ao salvar produto:', productError);
+            }
+          }
+          console.log(`✅ ${savedProducts} produtos salvos`);
+        }
+
+        const updatedRecord = await this.updateImportHistory(importRecord.id, {
+          status: 'processado',
+          productsFound: fileData.products?.length || 0,
+          productsCreated: fileData.products?.length || 0,
+          productsUpdated: 0,
+          supplier: fileData.supplier?.name || 'Fornecedor',
+          supplierCnpj: fileData.supplier?.cnpj || '',
+          supplierAddress: fileData.supplier?.address?.street || '',
+          nfeNumber: fileData.documentNumber || '000001',
+          nfeKey: fileData.accessKey || '',
+          totalValue: fileData.totalValue || 0,
+          processedAt: new Date()
+        });
+
+        console.log('✅ Importação finalizada com sucesso!');
+        return updatedRecord;
+
+      } catch (processError) {
+        console.error('❌ Erro no processamento:', processError);
+        
+        if (importRecord) {
+          try {
+            await this.updateImportHistory(importRecord.id, {
+              status: 'erro',
+              errorMessage: processError instanceof Error ? processError.message : 'Erro desconhecido'
+            });
+          } catch (updateError) {
+            console.error('❌ Erro ao atualizar status para erro:', updateError);
+          }
+        }
+        
+        throw processError;
+      }
+
+    } catch (error) {
+      console.error('❌ Erro geral no processNfeImport:', error);
+      throw new Error(`Erro na importação: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+    }
+  }
+
+  // 🔥 MÉTODOS PARA CADASTRO
+  async createEmpresa(empresa: InsertEmpresa): Promise<Empresa> {
+    const id = randomUUID();
+    const empresaData: Empresa = {
+      ...empresa,
+      id,
+      status: 'pendente',
+      dataAprovacao: null,
+      plano: 'starter',
+      dataExpiracao: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 dias
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    await db.insert(empresas).values(empresaData);
+    return empresaData;
+  }
+
+  async getEmpresa(id: string): Promise<Empresa | undefined> {
+    const result = await db.select().from(empresas).where(eq(empresas.id, id));
+    return result[0];
+  }
+
+  async getEmpresaByCnpj(cnpj: string): Promise<Empresa | undefined> {
+    const result = await db.select().from(empresas).where(eq(empresas.cnpj, cnpj));
+    return result[0];
+  }
+
+  async getEmpresaByEmail(email: string): Promise<Empresa | undefined> {
+    const result = await db.select().from(empresas).where(eq(empresas.email, email));
+    return result[0];
+  }
+
+  async updateEmpresa(id: string, empresa: Partial<InsertEmpresa>): Promise<Empresa> {
+    const updateData = {
+      ...empresa,
+      updatedAt: new Date()
+    };
+    
+    await db.update(empresas).set(updateData).where(eq(empresas.id, id));
+    const updated = await this.getEmpresa(id);
+    if (!updated) throw new Error("Empresa não encontrada");
+    return updated;
+  }
+
+  async createEmailVerificacao(verificacao: InsertEmailVerificacao): Promise<EmailVerificacao> {
+    const id = randomUUID();
+    const verificacaoData: EmailVerificacao = {
+      ...verificacao,
+      id,
+      expiraEm: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 horas
+      utilizado: false,
+      createdAt: new Date()
+    };
+    
+    await db.insert(emailVerificacoes).values(verificacaoData);
+    return verificacaoData;
+  }
+
+  async getEmailVerificacao(token: string): Promise<EmailVerificacao | undefined> {
+    const result = await db.select().from(emailVerificacoes).where(eq(emailVerificacoes.token, token));
+    return result[0];
+  }
+
+  async marcarEmailComoVerificado(userId: string): Promise<User> {
+    await db.update(users).set({
+      emailVerificado: true,
+      dataVerificacao: new Date(),
+      tokenVerificacao: null
+    }).where(eq(users.id, userId));
+    
+    const updated = await this.getUser(userId);
+    if (!updated) throw new Error("Usuário não encontrado");
+    return updated;
+  }
+
+  async utilizarTokenVerificacao(token: string): Promise<EmailVerificacao> {
+    await db.update(emailVerificacoes).set({
+      utilizado: true
+    }).where(eq(emailVerificacoes.token, token));
+    
+    const updated = await this.getEmailVerificacao(token);
+    if (!updated) throw new Error("Token não encontrado");
+    return updated;
+  }
+
+  // MÉTODO cadastrarUsuarioIndividual CORRIGIDO
+  async cadastrarUsuarioIndividual(dados: CadastroUsuario): Promise<{user: User, token: string}> {
+    try {
+      console.log('📝 Iniciando cadastro de usuário individual...');
+      
+      // Verificar se é o admin (email especial)
+      const isAdmin = dados.email === 'admin@stockmaster.com';
+      
+      console.log(`🔍 Verificando email: ${dados.email} (admin: ${isAdmin})`);
+      
+      // Verificar se email já existe (exceto para admin durante setup)
+      if (!isAdmin) {
+        const usuarioExistente = await this.getUserByEmail(dados.email);
+        if (usuarioExistente) {
+          console.log('❌ Email já existe:', dados.email);
+          throw new Error("Já existe um usuário com este email");
+        }
+      } else {
+        // Para admin, verificar se já existe
+        const adminExistente = await this.getUserByEmail(dados.email);
+        if (adminExistente) {
+          console.log('❌ Admin já existe');
+          throw new Error("Usuário admin já existe");
+        }
+      }
+
+      // Gerar username único
+      const baseUsername = dados.nome.toLowerCase().replace(/\s+/g, '.');
+      let username = baseUsername;
+      let counter = 1;
+      
+      while (await this.getUserByUsername(username)) {
+        username = `${baseUsername}${counter}`;
+        counter++;
+        if (counter > 10) break; // Prevenir loop infinito
+      }
+
+      console.log(`👤 Criando usuário com username: ${username}`);
+
+      // Criar usuário
+      const user = await this.createUser({
+        username,
+        password: dados.senha,
+        name: dados.nome,
+        email: dados.email,
+        tipo: 'individual',
+        role: isAdmin ? 'super_admin' : 'user', // 🔥 DEFINE ROLE
+        // 🔥 ADMIN: Marcar como verificado automaticamente
+        emailVerificado: isAdmin
+      });
+
+      // Gerar token de verificação (apenas para não-admins)
+      const token = isAdmin ? 'admin-auto-verified' : randomUUID();
+      
+      if (!isAdmin) {
+        console.log(`🔐 Criando token de verificação para: ${user.email}`);
+        await this.createEmailVerificacao({
+          userId: user.id,
+          email: user.email,
+          token,
+          tipo: 'cadastro'
+        });
+      } else {
+        console.log('⚡ Admin criado - sem verificação necessária');
+      }
+
+      console.log('✅ Cadastro de usuário individual concluído com sucesso');
+      return { user, token };
+
+    } catch (error) {
+      console.error('❌ Erro no cadastrarUsuarioIndividual:', error);
+      throw error; // Re-lançar o erro para ser tratado no route
+    }
+  }
+
+  async cadastrarEmpresa(dados: CadastroEmpresa): Promise<{empresa: Empresa, admin: User, token: string}> {
+    try {
+      console.log('🏢 Iniciando cadastro de empresa...');
+      
+      // Verificar se CNPJ já existe
+      const empresaExistente = await this.getEmpresaByCnpj(dados.empresaCnpj);
+      if (empresaExistente) {
+        throw new Error("Já existe uma empresa cadastrada com este CNPJ");
+      }
+
+      // Verificar se email da empresa já existe
+      const emailEmpresaExistente = await this.getEmpresaByEmail(dados.empresaEmail);
+      if (emailEmpresaExistente) {
+        throw new Error("Já existe uma empresa cadastrada com este email");
+      }
+
+      // Verificar se email do admin já existe
+      const adminExistente = await this.getUserByEmail(dados.adminEmail);
+      if (adminExistente) {
+        throw new Error("Já existe um usuário com este email de administrador");
+      }
+
+      // Criar empresa
+      const empresa = await this.createEmpresa({
+        nome: dados.empresaNome,
+        cnpj: dados.empresaCnpj,
+        email: dados.empresaEmail,
+        telefone: dados.empresaTelefone,
+        website: dados.empresaWebsite,
+        cep: dados.empresaCep,
+        logradouro: dados.empresaLogradouro,
+        numero: dados.empresaNumero,
+        complemento: dados.empresaComplemento,
+        cidade: dados.empresaCidade,
+        estado: dados.empresaEstado
+      });
+
+      console.log(`🏢 Empresa criada: ${empresa.nome}`);
+
+      // Gerar username único para admin
+      const baseUsername = dados.adminNome.toLowerCase().replace(/\s+/g, '.');
+      let username = baseUsername;
+      let counter = 1;
+      
+      while (await this.getUserByUsername(username)) {
+        username = `${baseUsername}${counter}`;
+        counter++;
+        if (counter > 10) break;
+      }
+
+      console.log(`👤 Criando admin com username: ${username}`);
+
+      // Criar usuário administrador
+      const admin = await this.createUser({
+        username,
+        password: dados.adminSenha,
+        name: dados.adminNome,
+        email: dados.adminEmail,
+        tipo: 'empresa',
+        role: 'admin', // 🔥 ADMIN DA EMPRESA
+        empresaId: empresa.id
+      });
+
+      // Gerar token de verificação
+      const token = randomUUID();
+      await this.createEmailVerificacao({
+        userId: admin.id,
+        email: admin.email,
+        token,
+        tipo: 'cadastro'
+      });
+
+      console.log('✅ Cadastro de empresa concluído com sucesso');
+      return { empresa, admin, token };
+
+    } catch (error) {
+      console.error('❌ Erro no cadastrarEmpresa:', error);
+      throw error;
+    }
+  }
+
+  // 🔥 NOVOS MÉTODOS DE PERMISSÕES
+
+  async getUsersByEmpresa(empresaId: string): Promise<User[]> {
+    try {
+      const result = await db.select().from(users).where(eq(users.empresaId, empresaId));
+      return result;
+    } catch (error) {
+      console.error('❌ Erro ao buscar usuários da empresa:', error);
+      return [];
+    }
+  }
+
+  async getEmpresaUsers(empresaId: string): Promise<User[]> {
+    return this.getUsersByEmpresa(empresaId);
+  }
+
+  async createUserForEmpresa(userData: any, empresaId: string, createdBy: string): Promise<User> {
+    try {
+      console.log('👥 Criando usuário para empresa...', { userData, empresaId, createdBy });
+
+      // Verificar se email já existe
+      const existingUser = await this.getUserByEmail(userData.email);
+      if (existingUser) {
+        throw new Error("Já existe um usuário com este email");
+      }
+
+      // Gerar username único
+      const baseUsername = userData.name.toLowerCase().replace(/\s+/g, '.');
+      let username = baseUsername;
+      let counter = 1;
+      
+      while (await this.getUserByUsername(username)) {
+        username = `${baseUsername}${counter}`;
+        counter++;
+        if (counter > 10) break;
+      }
+
+      // Criar usuário
+      const user = await this.createUser({
+        username,
+        password: userData.password || '123456', // Senha padrão
+        name: userData.name,
+        email: userData.email,
+        tipo: 'empresa',
+        role: userData.role || 'user',
+        empresaId: empresaId,
+        emailVerificado: false
+      });
+
+      // Gerar token de verificação
+      const token = randomUUID();
+      await this.createEmailVerificacao({
+        userId: user.id,
+        email: user.email,
+        token,
+        tipo: 'cadastro'
+      });
+
+      console.log('✅ Usuário criado para empresa com sucesso');
+      return user;
+
+    } catch (error) {
+      console.error('❌ Erro ao criar usuário para empresa:', error);
+      throw error;
+    }
+  }
+
+  async updateUserRole(userId: string, role: 'super_admin' | 'admin' | 'user'): Promise<User> {
+    try {
+      await db.update(users).set({ role }).where(eq(users.id, userId));
+      const updated = await this.getUser(userId);
+      if (!updated) throw new Error("Usuário não encontrado");
+      
+      console.log(`✅ Role do usuário ${userId} atualizado para: ${role}`);
+      return updated;
+    } catch (error) {
+      console.error('❌ Erro ao atualizar role do usuário:', error);
+      throw error;
+    }
+  }
+
+  // 🔥 MÉTODO deleteUser CORRIGIDO
+  async deleteUser(userId: string): Promise<void> {
+    try {
+      // Não permitir deletar o próprio usuário
+      const currentUser = await this.getUser(userId);
+      if (!currentUser) {
+        throw new Error("Usuário não encontrado");
+      }
+
+      // Não permitir deletar super_admin
+      if (currentUser.role === 'super_admin') {
+        throw new Error("Não é possível deletar um Super Admin");
+      }
+
+      // 🔥 CORREÇÃO: Primeiro deletar registros relacionados
+      console.log(`🗑️ Deletando registros relacionados do usuário: ${userId}`);
+      
+      // Deletar tokens de verificação de email
+      try {
+        await db.delete(emailVerificacoes).where(eq(emailVerificacoes.userId, userId));
+        console.log(`✅ Tokens de verificação deletados para usuário: ${userId}`);
+      } catch (emailError) {
+        console.error(`⚠️ Erro ao deletar tokens de verificação:`, emailError);
+      }
+
+      // 🔥 ADICIONAR AQUI OUTRAS EXCLUSÕES SE NECESSÁRIO:
+      // - Movimentações relacionadas ao usuário
+      // - Inventários criados pelo usuário
+      // - Relatórios gerados pelo usuário
+      // - Importações feitas pelo usuário
+
+      // Agora deletar o usuário
+      await db.delete(users).where(eq(users.id, userId));
+      console.log(`✅ Usuário ${userId} deletado com sucesso`);
+
+    } catch (error) {
+      console.error('❌ Erro ao deletar usuário:', error);
+      throw error;
+    }
+  }
+
+  async canUserAccessModule(userId: string, module: string): Promise<boolean> {
+    try {
+      const user = await this.getUser(userId);
+      if (!user) return false;
+
+      // 🔥 DEFINIÇÃO DE PERMISSÕES POR ROLE
+      const permissions = {
+        'super_admin': {
+          produtos: ['view', 'create', 'edit', 'delete'],
+          usuarios: ['view', 'create', 'edit', 'delete'],
+          relatorios: ['view', 'create', 'export'],
+          configuracoes: ['view', 'edit'],
+          importacao: ['view', 'create', 'delete'],
+          movimentacoes: ['view', 'create', 'edit', 'delete'],
+          inventarios: ['view', 'create', 'edit', 'delete']
+        },
+        'admin': {
+          produtos: ['view', 'create', 'edit', 'delete'],
+          usuarios: ['view', 'create', 'edit'], // Não pode deletar super_admin
+          relatorios: ['view', 'create', 'export'],
+          configuracoes: ['view'],
+          importacao: ['view', 'create', 'delete'],
+          movimentacoes: ['view', 'create', 'edit', 'delete'],
+          inventarios: ['view', 'create', 'edit', 'delete']
+        },
+        'user': {
+          produtos: ['view'],
+          usuarios: [], // Sem acesso
+          relatorios: ['view'],
+          configuracoes: [], // Sem acesso
+          importacao: ['view'],
+          movimentacoes: ['view', 'create'],
+          inventarios: ['view']
+        }
+      };
+
+      const userPermissions = permissions[user.role as keyof typeof permissions];
+      return userPermissions && module in userPermissions && userPermissions[module as keyof typeof userPermissions].length > 0;
+    } catch (error) {
+      console.error('❌ Erro ao verificar permissões:', error);
+      return false;
+    }
+  }
+
+  async getUserPermissions(userId: string): Promise<any> {
+    try {
+      const user = await this.getUser(userId);
+      if (!user) return {};
+
+      // 🔥 PERMISSÕES DETALHADAS
+      const permissions = {
+        'super_admin': {
+          dashboard: { view: true, edit: true },
+          produtos: { view: true, create: true, edit: true, delete: true },
+          categorias: { view: true, create: true, edit: true, delete: true },
+          locais: { view: true, create: true, edit: true, delete: true },
+          movimentacoes: { view: true, create: true, edit: true, delete: true },
+          inventarios: { view: true, create: true, edit: true, delete: true },
+          relatorios: { view: true, create: true, export: true },
+          importacao: { view: true, create: true, delete: true },
+          usuarios: { view: true, create: true, edit: true, delete: true },
+          configuracoes: { view: true, edit: true },
+          empresas: { view: true, create: true, edit: true, delete: true }
+        },
+        'admin': {
+          dashboard: { view: true, edit: true },
+          produtos: { view: true, create: true, edit: true, delete: true },
+          categorias: { view: true, create: true, edit: true, delete: true },
+          locais: { view: true, create: true, edit: true, delete: true },
+          movimentacoes: { view: true, create: true, edit: true, delete: true },
+          inventarios: { view: true, create: true, edit: true, delete: true },
+          relatorios: { view: true, create: true, export: true },
+          importacao: { view: true, create: true, delete: true },
+          usuarios: { view: true, create: true, edit: true }, // Não pode deletar
+          configuracoes: { view: true, edit: false },
+          empresas: { view: false, create: false, edit: false, delete: false }
+        },
+        'user': {
+          dashboard: { view: true, edit: false },
+          produtos: { view: true, create: false, edit: false, delete: false },
+          categorias: { view: true, create: false, edit: false, delete: false },
+          locais: { view: true, create: false, edit: false, delete: false },
+          movimentacoes: { view: true, create: true, edit: false, delete: false },
+          inventarios: { view: true, create: false, edit: false, delete: false },
+          relatorios: { view: true, create: false, export: false },
+          importacao: { view: true, create: false, delete: false },
+          usuarios: { view: false, create: false, edit: false, delete: false },
+          configuracoes: { view: false, edit: false },
+          empresas: { view: false, create: false, edit: false, delete: false }
+        }
+      };
+
+      return permissions[user.role as keyof typeof permissions] || {};
+    } catch (error) {
+      console.error('❌ Erro ao buscar permissões do usuário:', error);
+      return {};
     }
   }
 }
