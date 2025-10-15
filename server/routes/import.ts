@@ -105,8 +105,21 @@ const parseNFeXml = async (xmlBuffer: Buffer): Promise<any> => {
         const ide = infNFe.ide;
         const documentNumber = ide?.nNF || '000001';
         const emissionDate = ide?.dhEmi || new Date().toISOString();
+        
+        // 🔥 CORREÇÃO: Garantir que a data seja válida
+        let parsedEmissionDate: Date;
+        try {
+          parsedEmissionDate = new Date(emissionDate);
+          if (isNaN(parsedEmissionDate.getTime())) {
+            console.warn('⚠️ Data de emissão inválida no XML, usando data atual');
+            parsedEmissionDate = new Date();
+          }
+        } catch {
+          parsedEmissionDate = new Date();
+        }
+
         console.log('📄 Número da nota:', documentNumber);
-        console.log('📅 Data de emissão:', emissionDate);
+        console.log('📅 Data de emissão (corrigida):', parsedEmissionDate.toISOString());
 
         // 4. PRODUTOS - CORRIGIDO
         let det = infNFe.det;
@@ -170,7 +183,7 @@ const parseNFeXml = async (xmlBuffer: Buffer): Promise<any> => {
           accessKey,
           documentNumber: documentNumber.toString(),
           supplier,
-          emissionDate,
+          emissionDate: parsedEmissionDate.toISOString(), // 🔥 DATA CORRIGIDA
           totalValue,
           products
         };
@@ -238,6 +251,7 @@ importRoutes.post('/xml', upload.single('file'), async (req, res) => {
         accessKey: validatedData.accessKey,
         documentNumber: validatedData.documentNumber,
         supplier: validatedData.supplier,
+        emissionDate: validatedData.emissionDate, // 🔥 JÁ VEM VALIDADO
         totalValue: validatedData.totalValue,
         products: validatedData.products,
         xmlContent: file.buffer.toString('utf-8'),

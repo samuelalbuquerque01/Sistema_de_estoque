@@ -1,4 +1,4 @@
-// server/storage.ts - VERSÃO COMPLETA COM PERMISSÕES
+// server/storage.ts - VERSÃO COMPLETA CORRIGIDA
 import { 
   type User, type InsertUser, type Product, type InsertProduct, 
   type Category, type Location, type InsertCategory, type InsertLocation, 
@@ -839,23 +839,86 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(nfeProducts).where(eq(nfeProducts.importHistoryId, importHistoryId));
   }
 
-  async createNfeData(nfeData: InsertNfeData): Promise<NfeData> {
-    const id = randomUUID();
-    const data: NfeData = { 
-      ...nfeData, 
-      id, 
-      createdAt: new Date(),
-      totalValue: nfeData.totalValue?.toString() || '0',
-      xmlContent: nfeData.xmlContent || '',
-      rawData: nfeData.rawData || {}
-    };
-    await db.insert(nfeData).values(data);
-    return data;
+  // 🔥 MÉTODO createNfeData CORRIGIDO - PROBLEMA DE DATA RESOLVIDO
+  async createNfeData(insertNfeData: InsertNfeData): Promise<NfeData> {
+    try {
+      const id = randomUUID();
+      console.log(`💾 Criando dados NFe:`, {
+        id,
+        importHistoryId: insertNfeData.importHistoryId,
+        accessKey: insertNfeData.accessKey,
+        xmlContentLength: insertNfeData.xmlContent?.length || 0
+      });
+
+      // 🔥 CORREÇÃO CRÍTICA: Validar e formatar a data corretamente
+      let emissionDate: Date;
+      try {
+        emissionDate = new Date(insertNfeData.emissionDate);
+        if (isNaN(emissionDate.getTime())) {
+          console.warn('⚠️ Data de emissão inválida, usando data atual');
+          emissionDate = new Date();
+        }
+      } catch {
+        emissionDate = new Date();
+      }
+
+      console.log(`📅 Data de emissão processada:`, emissionDate.toISOString());
+
+      // 🔥 CORREÇÃO: Garantir que todos os campos obrigatórios estejam presentes
+      const data: NfeData = { 
+        ...insertNfeData, 
+        id, 
+        createdAt: new Date(),
+        emissionDate: emissionDate, // 🔥 DATA CORRIGIDA
+        totalValue: insertNfeData.totalValue?.toString() || '0',
+        xmlContent: insertNfeData.xmlContent || '',
+        rawData: insertNfeData.rawData || {}
+      };
+
+      console.log(`📊 Dados NFe preparados para inserção:`, {
+        id: data.id,
+        importHistoryId: data.importHistoryId,
+        accessKey: data.accessKey,
+        emissionDate: data.emissionDate,
+        xmlContentLength: data.xmlContent.length
+      });
+
+      // 🔥 CORREÇÃO: Verificar se importHistoryId está presente
+      if (!data.importHistoryId) {
+        throw new Error("importHistoryId é obrigatório para criar dados NFe");
+      }
+
+      await db.insert(nfeData).values(data);
+      console.log(`✅ Dados NFe inseridos no banco: ${id}`);
+      
+      return data;
+    } catch (error) {
+      console.error('❌ Erro ao criar dados NFe:', error);
+      console.error('📋 Dados que causaram o erro:', {
+        importHistoryId: insertNfeData.importHistoryId,
+        accessKey: insertNfeData.accessKey,
+        emissionDate: insertNfeData.emissionDate,
+        xmlContentLength: insertNfeData.xmlContent?.length
+      });
+      throw new Error(`Erro ao salvar dados NFe: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+    }
   }
 
   async getNfeDataByImport(importHistoryId: string): Promise<NfeData | undefined> {
-    const result = await db.select().from(nfeData).where(eq(nfeData.importHistoryId, importHistoryId));
-    return result[0];
+    try {
+      console.log(`🔍 Buscando dados NFe para importação: ${importHistoryId}`);
+      const result = await db.select().from(nfeData).where(eq(nfeData.importHistoryId, importHistoryId));
+      console.log(`📊 Dados NFe encontrados: ${result.length}`);
+      if (result[0] && result[0].xmlContent) {
+        console.log(`📄 XML content disponível: ${result[0].xmlContent.length} bytes`);
+      } else {
+        console.log(`⚠️ XML content NÃO disponível para importação: ${importHistoryId}`);
+      }
+      return result[0];
+    } catch (error) {
+      console.error('❌ Erro ao buscar dados NFe:', error);
+      return undefined;
+    }
   }
 
   async getNfeDataByAccessKey(accessKey: string): Promise<NfeData | undefined> {
@@ -863,6 +926,7 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
+  // 🔥 MÉTODO processNfeImport CORRIGIDO - GARANTIR QUE XML SEJA SALVO
   async processNfeImport(fileData: any, userId?: string): Promise<ImportHistory> {
     try {
       console.log('💾 Tentando salvar importação no banco...');
@@ -870,6 +934,11 @@ export class DatabaseStorage implements IStorage {
       let importRecord;
       
       try {
+        // 🔥 CORREÇÃO CRÍTICA: Garantir que o XML content seja salvo
+        const xmlContent = fileData.xmlContent || '';
+        
+        console.log(`📄 XML content a ser salvo: ${xmlContent.length} bytes`);
+        
         importRecord = await this.createImportHistory({
           fileName: fileData.fileName,
           status: 'processando',
@@ -889,24 +958,30 @@ export class DatabaseStorage implements IStorage {
 
         console.log('✅ Histórico criado:', importRecord.id);
 
+        // 🔥 CORREÇÃO: Salvar dados NFe com XML content - CORRIGIDO
         if (fileData.accessKey) {
           try {
+            console.log(`💾 Salvando dados NFe para importação ${importRecord.id}`);
+            
             const nfeDataRecord = await this.createNfeData({
-              importHistoryId: importRecord.id,
+              importHistoryId: importRecord.id, // 🔥 AGORA CORRETO - usando importRecord.id
               accessKey: fileData.accessKey,
               documentNumber: fileData.documentNumber,
               supplier: fileData.supplier,
-              emissionDate: new Date(fileData.emissionDate),
+              emissionDate: new Date(fileData.emissionDate || new Date()),
               totalValue: fileData.totalValue,
-              xmlContent: fileData.xmlContent,
+              xmlContent: xmlContent, // 🔥 AGORA SALVANDO O XML CORRETAMENTE
               rawData: fileData.rawData
             });
             console.log('✅ Dados da NFe salvos:', nfeDataRecord.id);
+            console.log(`📄 XML salvo no banco: ${xmlContent.length} bytes`);
           } catch (nfeError) {
             console.error('❌ Erro ao salvar dados NFe:', nfeError);
+            // Continuar mesmo com erro nos dados NFe para não quebrar a importação
           }
         }
 
+        // Salvar produtos NFe
         if (fileData.products && fileData.products.length > 0) {
           let savedProducts = 0;
           for (const product of fileData.products) {
@@ -931,6 +1006,7 @@ export class DatabaseStorage implements IStorage {
           console.log(`✅ ${savedProducts} produtos salvos`);
         }
 
+        // Atualizar histórico como processado
         const updatedRecord = await this.updateImportHistory(importRecord.id, {
           status: 'processado',
           productsFound: fileData.products?.length || 0,

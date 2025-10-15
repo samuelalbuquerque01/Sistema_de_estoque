@@ -56,6 +56,7 @@ interface DisplayProduct {
   minQuantity: number;
   unitPrice: string;
   type: string;
+  description?: string;
 }
 
 export default function Produtos({ 
@@ -70,6 +71,8 @@ export default function Produtos({
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editingProduct, setEditingProduct] = useState<DisplayProduct | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   // Carregar dados da API
   useEffect(() => {
@@ -120,7 +123,8 @@ export default function Produtos({
       quantity: product.quantity,
       minQuantity: product.minQuantity,
       unitPrice: product.unitPrice,
-      type: product.type
+      type: product.type,
+      description: product.description
     };
   };
 
@@ -138,7 +142,160 @@ export default function Produtos({
     return newCode;
   };
 
-  // Função para adicionar novo produto - CORRIGIDA
+  // 🔥 FUNÇÃO VISUALIZAR PRODUTO COMPLETA
+  const handleViewProduct = async (product: DisplayProduct) => {
+    try {
+      console.log('👀 Visualizando produto:', product);
+      
+      // Buscar dados completos do produto da API
+      const response = await fetch(`/api/products/${product.id}`);
+      
+      if (!response.ok) {
+        throw new Error('Erro ao buscar detalhes do produto');
+      }
+
+      const productDetails = await response.json();
+      
+      // Buscar categoria e localização reais
+      const category = categories.find(cat => cat.id === productDetails.categoryId);
+      const location = locations.find(loc => loc.id === productDetails.locationId);
+      
+      // Mostrar detalhes completos
+      const detailsMessage = `
+📦 DETALHES DO PRODUTO
+
+🔹 Código: ${productDetails.code}
+🔹 Nome: ${productDetails.name}
+🔹 Categoria: ${category?.name || 'Desconhecida'}
+🔹 Localização: ${location?.name || 'Desconhecido'}
+🔹 Quantidade: ${productDetails.quantity}
+🔹 Estoque Mínimo: ${productDetails.minQuantity}
+🔹 Preço Unitário: R$ ${parseFloat(productDetails.unitPrice || '0').toFixed(2)}
+🔹 Tipo: ${productDetails.type}
+🔹 Descrição: ${productDetails.description || 'Nenhuma descrição'}
+
+📊 Status: ${productDetails.quantity === 0 ? 'SEM ESTOQUE' : 
+              productDetails.quantity <= productDetails.minQuantity ? 'ESTOQUE BAIXO' : 'NORMAL'}
+      `.trim();
+
+      alert(detailsMessage);
+      
+    } catch (error) {
+      console.error('❌ Erro ao visualizar produto:', error);
+      alert('Erro ao carregar detalhes do produto:\n' + (error as Error).message);
+    }
+  };
+
+  // 🔥 FUNÇÃO EDITAR PRODUTO COMPLETA
+  const handleEditProduct = async (product: DisplayProduct) => {
+    try {
+      console.log('📝 Iniciando edição do produto:', product);
+      
+      // Buscar o produto original para obter os IDs
+      const originalProduct = products.find(p => p.id === product.id);
+      if (!originalProduct) {
+        throw new Error('Produto não encontrado');
+      }
+
+      // Buscar dados completos do produto
+      const response = await fetch(`/api/products/${product.id}`);
+      if (!response.ok) {
+        throw new Error('Erro ao buscar dados do produto para edição');
+      }
+
+      const productDetails = await response.json();
+      
+      // Preparar dados para edição
+      const productToEdit: DisplayProduct = {
+        id: productDetails.id,
+        code: productDetails.code,
+        name: productDetails.name,
+        category: categories.find(cat => cat.id === productDetails.categoryId)?.name || 'Desconhecida',
+        location: locations.find(loc => loc.id === productDetails.locationId)?.name || 'Desconhecido',
+        quantity: productDetails.quantity,
+        minQuantity: productDetails.minQuantity,
+        unitPrice: productDetails.unitPrice,
+        type: productDetails.type,
+        description: productDetails.description
+      };
+
+      // Configurar produto para edição e abrir dialog
+      setEditingProduct(productToEdit);
+      setIsEditDialogOpen(true);
+
+    } catch (error) {
+      console.error('❌ Erro ao preparar edição do produto:', error);
+      alert('Erro ao carregar dados do produto para edição:\n' + (error as Error).message);
+    }
+  };
+
+  // 🔥 FUNÇÃO PARA SALVAR EDIÇÃO DO PRODUTO
+  const handleSaveEdit = async (formData: any) => {
+    try {
+      if (!editingProduct) return;
+
+      console.log('💾 Salvando edição do produto:', editingProduct.id);
+      console.log('Dados do formulário:', formData);
+
+      // Encontrar IDs da categoria e localização selecionadas
+      const selectedCategory = categories.find(cat => cat.name === formData.categoryId);
+      const selectedLocation = locations.find(loc => loc.name === formData.locationId);
+
+      if (!selectedCategory || !selectedLocation) {
+        throw new Error('Categoria ou localização inválida');
+      }
+
+      // Preparar dados para envio
+      const dataToSend = {
+        ...formData,
+        categoryId: selectedCategory.id,
+        locationId: selectedLocation.id,
+        unitPrice: formData.unitPrice.toString() // Garantir que é string
+      };
+
+      console.log('Dados enviados para API:', dataToSend);
+
+      const response = await fetch(`/api/products/${editingProduct.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dataToSend)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erro ao atualizar produto');
+      }
+
+      const updatedProduct = await response.json();
+      
+      // Atualizar lista de produtos
+      setProducts(prev => prev.map(p => 
+        p.id === editingProduct.id ? updatedProduct : p
+      ));
+
+      // Fechar dialog e limpar estado
+      setIsEditDialogOpen(false);
+      setEditingProduct(null);
+
+      console.log('✅ Produto editado com sucesso:', updatedProduct);
+      alert('Produto atualizado com sucesso!');
+
+      // Recarregar dados para garantir sincronização
+      fetchData();
+
+    } catch (error) {
+      console.error('❌ Erro ao editar produto:', error);
+      alert('Erro ao editar produto:\n' + (error as Error).message);
+    }
+  };
+
+  // 🔥 FUNÇÃO PARA CANCELAR EDIÇÃO
+  const handleCancelEdit = () => {
+    setEditingProduct(null);
+    setIsEditDialogOpen(false);
+  };
+
+  // Função para adicionar novo produto
   const handleAddProduct = async (formData: any) => {
     try {
       console.log('=== DEBUG: INICIANDO CADASTRO ===');
@@ -199,12 +356,6 @@ export default function Produtos({
     }
   };
 
-  // Função para editar produto
-  const handleEditProduct = async (product: DisplayProduct) => {
-    console.log('Editar produto:', product);
-    // Implementar lógica de edição aqui
-  };
-
   // Função para excluir produto
   const handleDeleteProduct = async (product: DisplayProduct) => {
     if (confirm(`Tem certeza que deseja excluir o produto "${product.name}"?`)) {
@@ -216,12 +367,13 @@ export default function Produtos({
         if (response.ok) {
           setProducts(prev => prev.filter(p => p.id !== product.id));
           console.log('Produto excluído:', product);
+          alert('Produto excluído com sucesso!');
         } else {
           throw new Error('Erro ao excluir produto');
         }
       } catch (error) {
         console.error('Erro ao excluir produto:', error);
-        alert('Erro ao excluir produto');
+        alert('Erro ao excluir produto:\n' + (error as Error).message);
       }
     }
   };
@@ -312,11 +464,12 @@ export default function Produtos({
 
       <ProductTable
         products={filteredProducts}
-        onView={(product) => console.log('Visualizar:', product)}
+        onView={handleViewProduct}
         onEdit={handleEditProduct}
         onDelete={handleDeleteProduct}
       />
 
+      {/* Dialog para Novo Produto */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -331,6 +484,32 @@ export default function Produtos({
             onSubmit={handleAddProduct}
             onCancel={() => setIsDialogOpen(false)}
           />
+        </DialogContent>
+      </Dialog>
+
+      {/* 🔥 Dialog para Editar Produto */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Produto</DialogTitle>
+            <DialogDescription>
+              Edite os dados do produto {editingProduct?.name}
+            </DialogDescription>
+          </DialogHeader>
+          {editingProduct && (
+            <ProductForm
+              categories={categories}
+              locations={locations}
+              onSubmit={handleSaveEdit}
+              onCancel={handleCancelEdit}
+              initialData={{
+                ...editingProduct,
+                categoryId: editingProduct.category,
+                locationId: editingProduct.location
+              }}
+              isEditing={true}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>

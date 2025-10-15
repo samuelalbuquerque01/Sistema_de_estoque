@@ -13,7 +13,7 @@ import ReportService from "./utils/reportService";
 import { importRoutes } from "./routes/import";
 import { invoiceRoutes } from "./routes/invoices";
 import { randomUUID } from "crypto";
-import { EmailService } from "./utils/EmailService"; // 🔥 IMPORT REAL
+import { EmailService } from "./utils/EmailService";
 
 function convertToCSV(data: any): string {
   if (!data) return '';
@@ -65,19 +65,29 @@ function convertToCSV(data: any): string {
   return csvContent;
 }
 
+// 🔥 FUNÇÃO AUXILIAR PARA ENVIAR RESPOSTA XML
+function sendXmlResponse(res: any, nfeData: any, importItem: any) {
+  const xmlContent = nfeData.xmlContent;
+  const fileName = importItem 
+    ? `nfe_${importItem.nfeKey || importItem.id}.xml`
+    : `nfe_${nfeData.accessKey || nfeData.id}.xml`;
+
+  res.setHeader('Content-Type', 'application/xml');
+  res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+  res.setHeader('Content-Length', Buffer.byteLength(xmlContent, 'utf8'));
+  res.send(xmlContent);
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
-  // 🔥 INICIALIZAR EMAIL REAL
   EmailService.initialize();
   
   app.use("/api/import", importRoutes);
   app.use("/api/invoices", invoiceRoutes);
 
-  // 🔥 ROTA DE LOGIN CORRIGIDA - USA EMAIL EM VEZ DE USERNAME
   app.post("/api/auth/login", async (req, res) => {
     try {
       console.log('🔐 Tentativa de login...');
       
-      // 🔥 CORREÇÃO: Usar email em vez de username
       const { email, password } = req.body;
       
       if (!email || !password) {
@@ -89,7 +99,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`📧 Buscando usuário com email: ${email}`);
       
-      // 🔥 CORREÇÃO: Buscar usuário por EMAIL (não mais por username)
       const user = await storage.getUserByEmail(email);
       
       if (!user) {
@@ -100,7 +109,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Verificar senha
       if (password !== user.password) {
         console.log('❌ Senha incorreta');
         return res.status(401).json({ 
@@ -109,7 +117,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Verificar se email está verificado
       if (!user.emailVerificado) {
         console.log('⚠️ Email não verificado');
         return res.status(401).json({ 
@@ -138,7 +145,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // 🔥 NOVAS ROTAS DE CADASTRO
   app.post("/api/auth/cadastro/usuario", async (req, res) => {
     try {
       console.log('📝 Recebendo cadastro de usuário individual...');
@@ -147,7 +153,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const resultado = await storage.cadastrarUsuarioIndividual(validatedData);
       
-      // Enviar email de verificação (apenas para não-admins)
       if (resultado.user.email !== 'admin@stockmaster.com') {
         await EmailService.enviarEmailVerificacao(
           resultado.user.email,
@@ -197,7 +202,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const resultado = await storage.cadastrarEmpresa(validatedData);
       
-      // Enviar email de verificação para o admin
       await EmailService.enviarEmailVerificacao(
         resultado.admin.email,
         resultado.admin.name,
@@ -242,7 +246,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const { token } = verificarEmailSchema.parse(req.body);
       
-      // 🔥 CORREÇÃO: Token especial para admin
       if (token === 'admin-auto-verified') {
         return res.json({
           success: true,
@@ -276,11 +279,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Marcar email como verificado
       const user = await storage.marcarEmailComoVerificado(verificacao.userId);
       await storage.utilizarTokenVerificacao(token);
 
-      // Enviar email de boas-vindas
       await EmailService.enviarEmailBoasVindas(user.email, user.name);
 
       res.json({
@@ -329,7 +330,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Email já verificado" });
       }
 
-      // Gerar novo token
       const token = randomUUID();
       await storage.createEmailVerificacao({
         userId: user.id,
@@ -338,7 +338,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tipo: 'cadastro'
       });
 
-      // Reenviar email
       await EmailService.enviarEmailVerificacao(user.email, user.name, token);
 
       res.json({
@@ -354,7 +353,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ROTA DASHBOARD CORRIGIDA
   app.get("/api/dashboard/stats", async (req, res) => {
     try {
       console.log('📊 Buscando estatísticas do dashboard...');
@@ -506,7 +504,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ROTAS EXISTENTES DO HISTÓRICO
   app.get("/api/import/history", async (req, res) => {
     try {
       const importHistory = await storage.getImportHistory();
@@ -560,18 +557,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // 🔥 CORREÇÃO: Rota de download do XML - VERIFICAÇÃO MELHORADA
   app.get("/api/import/:id/download", async (req, res) => {
     try {
       const { id } = req.params;
+      console.log(`🔍 Buscando XML para importação: ${id}`);
+      
       const nfeData = await storage.getNfeDataByImport(id);
-      if (!nfeData || !nfeData.xmlContent) {
-        return res.status(404).json({ error: "XML não encontrado" });
+      console.log(`📊 Dados encontrados:`, nfeData ? 'Sim' : 'Não');
+      
+      if (!nfeData) {
+        console.log(`❌ Nenhum dado NFe encontrado para importação: ${id}`);
+        
+        // 🔥 TENTAR FALLBACK: Buscar no histórico de importação
+        const importItem = await storage.getImportHistoryById(id);
+        if (!importItem) {
+          return res.status(404).json({ error: "Importação não encontrada" });
+        }
+        
+        // Se tem chave, tentar buscar por ela
+        if (importItem.nfeKey) {
+          const nfeByKey = await storage.getNfeDataByAccessKey(importItem.nfeKey);
+          if (nfeByKey) {
+            console.log(`✅ Dados NFe encontrados pela chave: ${importItem.nfeKey}`);
+            return sendXmlResponse(res, nfeByKey, importItem);
+          }
+        }
+        
+        return res.status(404).json({ error: "XML não encontrado para esta importação" });
       }
-      res.setHeader('Content-Type', 'application/xml');
-      res.setHeader('Content-Disposition', `attachment; filename="nfe_${nfeData.accessKey || id}.xml"`);
-      res.send(nfeData.xmlContent);
+
+      if (!nfeData.xmlContent) {
+        console.log(`❌ XML content vazio para importação: ${id}`);
+        return res.status(404).json({ error: "Conteúdo XML não disponível" });
+      }
+
+      console.log(`✅ XML encontrado, tamanho: ${nfeData.xmlContent.length} bytes`);
+      return sendXmlResponse(res, nfeData, null);
+
     } catch (error) {
-      res.status(500).json({ error: "Erro interno do servidor" });
+      console.error('❌ Erro ao buscar XML:', error);
+      res.status(500).json({ 
+        error: "Erro interno do servidor ao buscar XML",
+        message: error instanceof Error ? error.message : 'Erro desconhecido'
+      });
     }
   });
 
@@ -606,20 +635,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // 🔥 CORREÇÃO: Rota DELETE que exclui realmente do banco
   app.delete("/api/import/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const importItem = await storage.getImportHistoryById(id);
-      if (!importItem) return res.status(404).json({ error: "Importação não encontrada" });
+      console.log(`🗑️ Excluindo importação: ${id}`);
       
-      await storage.updateImportHistory(id, { status: 'excluido' });
-      res.json({ success: true, message: "Importação excluída", importId: id });
+      const importItem = await storage.getImportHistoryById(id);
+      if (!importItem) {
+        return res.status(404).json({ error: "Importação não encontrada" });
+      }
+      
+      // 🔥 CORREÇÃO: Excluir realmente do banco em vez de apenas marcar status
+      await storage.deleteImportHistory(id);
+      
+      console.log(`✅ Importação ${id} excluída permanentemente do banco`);
+      res.json({ 
+        success: true, 
+        message: "Importação excluída permanentemente", 
+        importId: id 
+      });
+      
     } catch (error) {
-      res.status(500).json({ error: "Erro interno do servidor" });
+      console.error('❌ Erro ao excluir importação:', error);
+      res.status(500).json({ 
+        error: "Erro interno do servidor ao excluir importação",
+        message: error instanceof Error ? error.message : 'Erro desconhecido'
+      });
     }
   });
 
-  // ROTAS EXISTENTES DE PRODUTOS
   app.get("/api/products", async (req, res) => {
     try {
       const products = await storage.getProducts();
@@ -798,7 +843,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ROTAS DE RELATÓRIOS
   app.get("/api/reports", async (req, res) => {
     try {
       const reports = await storage.getReports();
@@ -960,15 +1004,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // 🔥 ROTAS DE USUÁRIOS - ADICIONADAS ANTES DO httpServer
   app.get("/api/usuarios", async (req, res) => {
     try {
       console.log('📋 Buscando lista de usuários...');
       
-      // Buscar todos os usuários do banco
       const usuarios = await storage.getUsers();
       
-      // Remover senhas dos resultados
       const usuariosSemSenha = usuarios.map(u => {
         const { password, tokenVerificacao, ...usuarioSemSenha } = u;
         return usuarioSemSenha;
@@ -989,18 +1030,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const { name, email, role, password } = req.body;
 
-      // Validar dados
       if (!name || !email || !role || !password) {
         return res.status(400).json({ error: "Todos os campos são obrigatórios" });
       }
 
-      // Verificar se email já existe
       const usuarioExistente = await storage.getUserByEmail(email);
       if (usuarioExistente) {
         return res.status(400).json({ error: "Já existe um usuário com este email" });
       }
 
-      // Gerar username único
       const baseUsername = name.toLowerCase().replace(/\s+/g, '.');
       let username = baseUsername;
       let counter = 1;
@@ -1011,7 +1049,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (counter > 10) break;
       }
 
-      // Criar usuário
       const novoUsuario = await storage.createUser({
         username,
         password,
@@ -1022,7 +1059,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         emailVerificado: false
       });
 
-      // Gerar token de verificação
       const token = randomUUID();
       await storage.createEmailVerificacao({
         userId: novoUsuario.id,
@@ -1060,7 +1096,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`🔄 Atualizando role do usuário ${id} para: ${role}`);
 
-      // Validar role
       if (!['super_admin', 'admin', 'user'].includes(role)) {
         return res.status(400).json({ error: "Role inválida" });
       }
@@ -1104,7 +1139,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // 🔥 ROTA PARA BUSCAR USUÁRIOS POR EMPRESA
   app.get("/api/usuarios/empresa/:empresaId", async (req, res) => {
     try {
       const { empresaId } = req.params;
@@ -1113,7 +1147,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const usuarios = await storage.getUsersByEmpresa(empresaId);
       
-      // Remover senhas
       const usuariosSemSenha = usuarios.map(u => {
         const { password, tokenVerificacao, ...usuarioSemSenha } = u;
         return usuarioSemSenha;
@@ -1127,6 +1160,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  const httpServer = createServer(app); // 🔥 ESTA LINHA JÁ DEVE EXISTIR
+  const httpServer = createServer(app);
   return httpServer;
 }
