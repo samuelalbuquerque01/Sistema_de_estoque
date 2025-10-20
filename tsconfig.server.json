@@ -4,6 +4,10 @@
     "module": "ESNext",
     "lib": ["ES2022"],
     "moduleResolution": "node",
+    "baseUrl": ".",
+    "paths": {
+      "@shared/*": ["./shared/*"]
+    },
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "strict": true,
