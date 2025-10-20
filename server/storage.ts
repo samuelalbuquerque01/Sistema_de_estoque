@@ -1,7 +1,7 @@
-// server/storage.ts - VERSÃO COMPLETA CORRIGIDA
+// server/storage.ts - VERSÃO LIMPA
 import { 
   type User, type InsertUser, type Product, type InsertProduct, 
-  type Category, type Location, type InsertCategory, type InsertLocation, 
+  type Category, type InsertCategory, type Location, type InsertLocation, 
   type Movement, type InsertMovement, type Inventory, type InsertInventory, 
   type InventoryCount, type InsertInventoryCount, type Report, type InsertReport,
   type ImportHistory, type InsertImportHistory, type NfeProduct, type InsertNfeProduct,
@@ -19,12 +19,11 @@ import {
 import { eq, and, desc, sql } from "drizzle-orm";
 
 export interface IStorage {
-  // Métodos existentes
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  getUsers(): Promise<User[]>; // 🔥 MÉTODO ADICIONADO
+  getUsers(): Promise<User[]>;
   getProducts(): Promise<Product[]>;
   getProduct(id: string): Promise<Product | undefined>;
   createProduct(product: InsertProduct): Promise<Product>;
@@ -37,6 +36,8 @@ export interface IStorage {
   getLocations(): Promise<Location[]>;
   getLocation(id: string): Promise<Location | undefined>;
   createLocation(location: InsertLocation): Promise<Location>;
+  updateLocation(id: string, location: Partial<InsertLocation>): Promise<Location>;
+  deleteLocation(id: string): Promise<void>;
   getMovements(): Promise<Movement[]>;
   createMovement(movement: InsertMovement): Promise<Movement>;
   getMovementsByProduct(productId: string): Promise<Movement[]>;
@@ -49,13 +50,11 @@ export interface IStorage {
   getInventoryCounts(inventoryId: string): Promise<InventoryCount[]>;
   createInventoryCount(count: InsertInventoryCount): Promise<InventoryCount>;
 
-  // Métodos para relatórios
   createReport(report: InsertReport): Promise<Report>;
   getReports(): Promise<Report[]>;
   getReport(id: string): Promise<Report | undefined>;
   deleteReport(id: string): Promise<void>;
   
-  // Métodos para dados dos relatórios
   getProductsReport(): Promise<any>;
   getLowStockProducts(): Promise<any>;
   getFinancialReport(): Promise<any>;
@@ -63,7 +62,6 @@ export interface IStorage {
   getInventoryReport(): Promise<any>;
   getProductsByLocationReport(): Promise<any>;
 
-  // Métodos para importação
   createImportHistory(importData: InsertImportHistory): Promise<ImportHistory>;
   getImportHistory(): Promise<ImportHistory[]>;
   getImportHistoryById(id: string): Promise<ImportHistory | undefined>;
@@ -77,10 +75,8 @@ export interface IStorage {
   getNfeDataByImport(importHistoryId: string): Promise<NfeData | undefined>;
   getNfeDataByAccessKey(accessKey: string): Promise<NfeData | undefined>;
   
-  // Método para processar importação completa
   processNfeImport(fileData: any, userId?: string): Promise<ImportHistory>;
 
-  // 🔥 MÉTODOS PARA CADASTRO
   createEmpresa(empresa: InsertEmpresa): Promise<Empresa>;
   getEmpresa(id: string): Promise<Empresa | undefined>;
   getEmpresaByCnpj(cnpj: string): Promise<Empresa | undefined>;
@@ -92,11 +88,9 @@ export interface IStorage {
   marcarEmailComoVerificado(userId: string): Promise<User>;
   utilizarTokenVerificacao(token: string): Promise<EmailVerificacao>;
   
-  // Métodos específicos para cadastro
   cadastrarUsuarioIndividual(dados: CadastroUsuario): Promise<{user: User, token: string}>;
   cadastrarEmpresa(dados: CadastroEmpresa): Promise<{empresa: Empresa, admin: User, token: string}>;
 
-  // 🔥 NOVOS MÉTODOS PARA PERMISSÕES
   getUsersByEmpresa(empresaId: string): Promise<User[]>;
   createUserForEmpresa(userData: any, empresaId: string, createdBy: string): Promise<User>;
   updateUserRole(userId: string, role: 'super_admin' | 'admin' | 'user'): Promise<User>;
@@ -107,9 +101,66 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  // 🔥 MÉTODO ensureDefaultUser ATUALIZADO
+  async ensureDefaultCategories(): Promise<void> {
+    try {
+      const existingCategories = await this.getCategories();
+      
+      if (existingCategories.length === 0) {
+        const defaultCategories = [
+          {
+            id: 'limpeza',
+            name: 'Produtos de Limpeza',
+            type: 'limpeza',
+            description: 'Produtos para limpeza e higienização'
+          },
+          {
+            id: 'ferramenta', 
+            name: 'Ferramentas',
+            type: 'ferramenta',
+            description: 'Ferramentas manuais e elétricas'
+          },
+          {
+            id: 'insumo',
+            name: 'Insumos', 
+            type: 'insumo',
+            description: 'Matérias-primas e insumos para produção'
+          },
+          {
+            id: 'equipamento',
+            name: 'Equipamentos',
+            type: 'equipamento', 
+            description: 'Máquinas e equipamentos'
+          },
+          {
+            id: 'material',
+            name: 'Materiais',
+            type: 'material',
+            description: 'Materiais diversos'
+          },
+          {
+            id: 'outros',
+            name: 'Outros',
+            type: 'outros',
+            description: 'Outros tipos de produtos'
+          }
+        ];
+
+        for (const category of defaultCategories) {
+          await db.insert(categories).values(category);
+        }
+        
+        console.log('Categorias padrão criadas com sucesso');
+      }
+    } catch (error) {
+      console.error('Erro ao criar categorias padrão:', error);
+    }
+  }
+
   async ensureDefaultUser(): Promise<string> {
     try {
+      // Criar categorias primeiro
+      await this.ensureDefaultCategories();
+      
       const existingUser = await this.getUserByEmail('admin@stockmaster.com');
       if (existingUser) {
         return existingUser.id;
@@ -121,37 +172,30 @@ export class DatabaseStorage implements IStorage {
         name: 'Administrador',
         email: 'admin@stockmaster.com',
         tipo: 'individual',
-        role: 'super_admin', // 🔥 AGORA É SUPER ADMIN
+        role: 'super_admin',
         emailVerificado: true
       };
       const user = await this.createUser(defaultUser);
       return user.id;
     } catch (error) {
-      console.error('❌ Erro ao criar usuário padrão:', error);
       throw new Error('Erro ao criar usuário padrão');
     }
   }
 
-  // 🔥 MÉTODO getUsers ADICIONADO
   async getUsers(): Promise<User[]> {
     try {
-      console.log('📋 Buscando todos os usuários...');
       const result = await db.select().from(users).orderBy(users.name);
-      console.log(`✅ ${result.length} usuários encontrados`);
       return result;
     } catch (error) {
-      console.error('❌ Erro ao buscar usuários:', error);
       return [];
     }
   }
 
-  // 🔥 MÉTODOS EXISTENTES (MANTIDOS)
   async getUser(id: string): Promise<User | undefined> {
     try {
       const result = await db.select().from(users).where(eq(users.id, id));
       return result[0];
     } catch (error) {
-      console.error('❌ Erro ao buscar usuário por ID:', error);
       return undefined;
     }
   }
@@ -161,25 +205,19 @@ export class DatabaseStorage implements IStorage {
       const result = await db.select().from(users).where(eq(users.username, username));
       return result[0];
     } catch (error) {
-      console.error('❌ Erro ao buscar usuário por username:', error);
       return undefined;
     }
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
     try {
-      console.log(`🔍 Buscando usuário por email: ${email}`);
       const result = await db.select().from(users).where(eq(users.email, email));
-      console.log(`📊 Resultado da busca:`, result.length > 0 ? 'Usuário encontrado' : 'Usuário não encontrado');
       return result[0];
     } catch (error) {
-      console.error('❌ Erro ao buscar usuário por email:', error);
       try {
-        console.log('🔄 Tentando fallback: buscar por username...');
         const result = await db.select().from(users).where(eq(users.username, email));
         return result[0];
       } catch (fallbackError) {
-        console.error('❌ Fallback também falhou:', fallbackError);
         return undefined;
       }
     }
@@ -197,14 +235,6 @@ export class DatabaseStorage implements IStorage {
         createdAt: new Date()
       };
       
-      console.log(`👤 Criando usuário:`, { 
-        id: user.id, 
-        username: user.username, 
-        email: user.email,
-        role: user.role,
-        emailVerificado: user.emailVerificado 
-      });
-      
       await db.insert(users).values(user);
       
       const createdUser = await this.getUser(id);
@@ -212,10 +242,8 @@ export class DatabaseStorage implements IStorage {
         throw new Error("Usuário não encontrado após criação");
       }
       
-      console.log('✅ Usuário criado com sucesso');
       return createdUser;
     } catch (error) {
-      console.error('❌ Erro ao criar usuário:', error);
       throw new Error("Erro ao criar usuário: " + (error instanceof Error ? error.message : 'Erro desconhecido'));
     }
   }
@@ -258,7 +286,67 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteProduct(id: string): Promise<void> {
-    await db.delete(products).where(eq(products.id, id));
+    try {
+      const product = await this.getProduct(id);
+      if (!product) {
+        throw new Error("Produto não encontrado");
+      }
+
+      await db.transaction(async (tx) => {
+        try {
+          const productMovements = await tx.select()
+            .from(movements)
+            .where(eq(movements.productId, id));
+          
+          if (productMovements.length > 0) {
+            await tx.delete(movements).where(eq(movements.productId, id));
+          }
+        } catch (movementError) {
+          throw new Error(`Erro ao excluir movimentações: ${movementError}`);
+        }
+
+        try {
+          const inventoryCountsResult = await tx.select()
+            .from(inventoryCounts)
+            .where(eq(inventoryCounts.productId, id));
+          
+          if (inventoryCountsResult.length > 0) {
+            await tx.delete(inventoryCounts).where(eq(inventoryCounts.productId, id));
+          }
+        } catch (inventoryError) {
+          throw new Error(`Erro ao excluir contagens de inventário: ${inventoryError}`);
+        }
+
+        try {
+          const nfeProductsResult = await tx.select()
+            .from(nfeProducts)
+            .where(eq(nfeProducts.productId, id));
+          
+          if (nfeProductsResult.length > 0) {
+            await tx.update(nfeProducts)
+              .set({ productId: null })
+              .where(eq(nfeProducts.productId, id));
+          }
+        } catch (nfeError) {
+          throw new Error(`Erro ao atualizar produtos NFe: ${nfeError}`);
+        }
+
+        await tx.delete(products).where(eq(products.id, id));
+      });
+
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message.includes('violates foreign key constraint')) {
+          throw new Error('Não é possível excluir o produto pois ele está vinculado a outros registros no sistema.');
+        } else if (error.message.includes('syntax error')) {
+          throw new Error('Erro de sintaxe no banco de dados. Contate o administrador.');
+        } else {
+          throw new Error(`Erro ao excluir produto: ${error.message}`);
+        }
+      } else {
+        throw new Error('Erro desconhecido ao excluir produto');
+      }
+    }
   }
 
   async getProductsByCategory(categoryId: string): Promise<Product[]> {
@@ -297,6 +385,47 @@ export class DatabaseStorage implements IStorage {
     return location;
   }
 
+  async updateLocation(id: string, locationData: Partial<InsertLocation>): Promise<Location> {
+    try {
+      const existingLocation = await this.getLocation(id);
+      if (!existingLocation) {
+        throw new Error("Local não encontrado");
+      }
+
+      await db.update(locations).set(locationData).where(eq(locations.id, id));
+      
+      const updated = await this.getLocation(id);
+      if (!updated) {
+        throw new Error("Local não encontrado após atualização");
+      }
+      
+      return updated;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async deleteLocation(id: string): Promise<void> {
+    try {
+      const location = await this.getLocation(id);
+      if (!location) {
+        throw new Error("Local não encontrado");
+      }
+
+      const products = await this.getProducts();
+      const productsUsingLocation = products.filter(product => product.locationId === id);
+      
+      if (productsUsingLocation.length > 0) {
+        throw new Error(`Existem ${productsUsingLocation.length} produtos vinculados a este local. Movimente os produtos para outro local antes de excluir.`);
+      }
+
+      await db.delete(locations).where(eq(locations.id, id));
+      
+    } catch (error) {
+      throw error;
+    }
+  }
+
   async getMovements(): Promise<Movement[]> {
     return await db.select().from(movements).orderBy(desc(movements.createdAt));
   }
@@ -309,7 +438,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getMovementsByProduct(productId: string): Promise<Movement[]> {
-    return await db.select().from(movements).where(eq(movements.productId, productId)).orderBy(desc(movements.createdAt));
+    try {
+      return await db.select()
+        .from(movements)
+        .where(eq(movements.productId, productId));
+    } catch (error) {
+      return [];
+    }
   }
 
   async getInventories(): Promise<Inventory[]> {
@@ -395,7 +530,6 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // MÉTODOS PARA RELATÓRIOS
   async createReport(insertReport: InsertReport): Promise<Report> {
     const id = randomUUID();
     const report: Report = { 
@@ -421,7 +555,6 @@ export class DatabaseStorage implements IStorage {
     await db.delete(reports).where(eq(reports.id, id));
   }
 
-  // RELATÓRIO DE PRODUTOS COMPLETO
   async getProductsReport(): Promise<any> {
     try {
       const products = await this.getProducts();
@@ -438,7 +571,6 @@ export class DatabaseStorage implements IStorage {
           id: product.id,
           codigo: product.code || 'N/A',
           nome: product.name,
-          tipo: product.type,
           categoria: category?.name || 'Sem Categoria',
           localizacao: location?.name || 'Sem Local',
           quantidade: product.quantity,
@@ -475,7 +607,6 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // RELATÓRIO DE ESTOQUE BAIXO COMPLETO
   async getLowStockProducts(): Promise<any> {
     try {
       const products = await this.getProducts();
@@ -492,7 +623,6 @@ export class DatabaseStorage implements IStorage {
           id: product.id,
           codigo: product.code || 'N/A',
           nome: product.name,
-          tipo: product.type,
           categoria: category?.name || 'Sem Categoria',
           quantidade_atual: product.quantity,
           estoque_minimo: product.minQuantity,
@@ -527,7 +657,6 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // RELATÓRIO FINANCEIRO COMPLETO
   async getFinancialReport(): Promise<any> {
     try {
       const products = await this.getProducts();
@@ -591,7 +720,6 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // RELATÓRIO DE MOVIMENTAÇÕES COMPLETO
   async getMovementsReport(startDate?: Date, endDate?: Date): Promise<any> {
     try {
       let movements = await this.getMovements();
@@ -649,7 +777,6 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // RELATÓRIO DE INVENTÁRIOS COMPLETO
   async getInventoryReport(): Promise<any> {
     try {
       const inventories = await this.getInventories();
@@ -699,7 +826,6 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // RELATÓRIO DE PRODUTOS POR LOCAL COMPLETO
   async getProductsByLocationReport(): Promise<any> {
     try {
       const products = await this.getProducts();
@@ -765,7 +891,6 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // MÉTODOS PARA IMPORTACAO DE XML
   async createImportHistory(importData: InsertImportHistory): Promise<ImportHistory> {
     const id = randomUUID();
     const history: ImportHistory = { 
@@ -815,9 +940,7 @@ export class DatabaseStorage implements IStorage {
       await db.delete(nfeProducts).where(eq(nfeProducts.importHistoryId, id));
       await db.delete(nfeData).where(eq(nfeData.importHistoryId, id));
       await db.delete(importHistory).where(eq(importHistory.id, id));
-      console.log(`✅ Importação ${id} excluída com sucesso`);
     } catch (error) {
-      console.error(`❌ Erro ao excluir importação ${id}:`, error);
       throw new Error("Erro ao excluir importação");
     }
   }
@@ -839,84 +962,47 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(nfeProducts).where(eq(nfeProducts.importHistoryId, importHistoryId));
   }
 
-  // 🔥 MÉTODO createNfeData CORRIGIDO - PROBLEMA DE DATA RESOLVIDO
   async createNfeData(insertNfeData: InsertNfeData): Promise<NfeData> {
     try {
       const id = randomUUID();
-      console.log(`💾 Criando dados NFe:`, {
-        id,
-        importHistoryId: insertNfeData.importHistoryId,
-        accessKey: insertNfeData.accessKey,
-        xmlContentLength: insertNfeData.xmlContent?.length || 0
-      });
 
-      // 🔥 CORREÇÃO CRÍTICA: Validar e formatar a data corretamente
       let emissionDate: Date;
       try {
         emissionDate = new Date(insertNfeData.emissionDate);
         if (isNaN(emissionDate.getTime())) {
-          console.warn('⚠️ Data de emissão inválida, usando data atual');
           emissionDate = new Date();
         }
       } catch {
         emissionDate = new Date();
       }
 
-      console.log(`📅 Data de emissão processada:`, emissionDate.toISOString());
-
-      // 🔥 CORREÇÃO: Garantir que todos os campos obrigatórios estejam presentes
       const data: NfeData = { 
         ...insertNfeData, 
         id, 
         createdAt: new Date(),
-        emissionDate: emissionDate, // 🔥 DATA CORRIGIDA
+        emissionDate: emissionDate,
         totalValue: insertNfeData.totalValue?.toString() || '0',
         xmlContent: insertNfeData.xmlContent || '',
         rawData: insertNfeData.rawData || {}
       };
 
-      console.log(`📊 Dados NFe preparados para inserção:`, {
-        id: data.id,
-        importHistoryId: data.importHistoryId,
-        accessKey: data.accessKey,
-        emissionDate: data.emissionDate,
-        xmlContentLength: data.xmlContent.length
-      });
-
-      // 🔥 CORREÇÃO: Verificar se importHistoryId está presente
       if (!data.importHistoryId) {
         throw new Error("importHistoryId é obrigatório para criar dados NFe");
       }
 
       await db.insert(nfeData).values(data);
-      console.log(`✅ Dados NFe inseridos no banco: ${id}`);
       
       return data;
     } catch (error) {
-      console.error('❌ Erro ao criar dados NFe:', error);
-      console.error('📋 Dados que causaram o erro:', {
-        importHistoryId: insertNfeData.importHistoryId,
-        accessKey: insertNfeData.accessKey,
-        emissionDate: insertNfeData.emissionDate,
-        xmlContentLength: insertNfeData.xmlContent?.length
-      });
       throw new Error(`Erro ao salvar dados NFe: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     }
   }
 
   async getNfeDataByImport(importHistoryId: string): Promise<NfeData | undefined> {
     try {
-      console.log(`🔍 Buscando dados NFe para importação: ${importHistoryId}`);
       const result = await db.select().from(nfeData).where(eq(nfeData.importHistoryId, importHistoryId));
-      console.log(`📊 Dados NFe encontrados: ${result.length}`);
-      if (result[0] && result[0].xmlContent) {
-        console.log(`📄 XML content disponível: ${result[0].xmlContent.length} bytes`);
-      } else {
-        console.log(`⚠️ XML content NÃO disponível para importação: ${importHistoryId}`);
-      }
       return result[0];
     } catch (error) {
-      console.error('❌ Erro ao buscar dados NFe:', error);
       return undefined;
     }
   }
@@ -926,18 +1012,12 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  // 🔥 MÉTODO processNfeImport CORRIGIDO - GARANTIR QUE XML SEJA SALVO
   async processNfeImport(fileData: any, userId?: string): Promise<ImportHistory> {
     try {
-      console.log('💾 Tentando salvar importação no banco...');
-      
       let importRecord;
       
       try {
-        // 🔥 CORREÇÃO CRÍTICA: Garantir que o XML content seja salvo
         const xmlContent = fileData.xmlContent || '';
-        
-        console.log(`📄 XML content a ser salvo: ${xmlContent.length} bytes`);
         
         importRecord = await this.createImportHistory({
           fileName: fileData.fileName,
@@ -956,32 +1036,22 @@ export class DatabaseStorage implements IStorage {
           errorMessage: null
         });
 
-        console.log('✅ Histórico criado:', importRecord.id);
-
-        // 🔥 CORREÇÃO: Salvar dados NFe com XML content - CORRIGIDO
         if (fileData.accessKey) {
           try {
-            console.log(`💾 Salvando dados NFe para importação ${importRecord.id}`);
-            
             const nfeDataRecord = await this.createNfeData({
-              importHistoryId: importRecord.id, // 🔥 AGORA CORRETO - usando importRecord.id
+              importHistoryId: importRecord.id,
               accessKey: fileData.accessKey,
               documentNumber: fileData.documentNumber,
               supplier: fileData.supplier,
               emissionDate: new Date(fileData.emissionDate || new Date()),
               totalValue: fileData.totalValue,
-              xmlContent: xmlContent, // 🔥 AGORA SALVANDO O XML CORRETAMENTE
+              xmlContent: xmlContent,
               rawData: fileData.rawData
             });
-            console.log('✅ Dados da NFe salvos:', nfeDataRecord.id);
-            console.log(`📄 XML salvo no banco: ${xmlContent.length} bytes`);
           } catch (nfeError) {
-            console.error('❌ Erro ao salvar dados NFe:', nfeError);
-            // Continuar mesmo com erro nos dados NFe para não quebrar a importação
           }
         }
 
-        // Salvar produtos NFe
         if (fileData.products && fileData.products.length > 0) {
           let savedProducts = 0;
           for (const product of fileData.products) {
@@ -1000,13 +1070,10 @@ export class DatabaseStorage implements IStorage {
               });
               savedProducts++;
             } catch (productError) {
-              console.error('❌ Erro ao salvar produto:', productError);
             }
           }
-          console.log(`✅ ${savedProducts} produtos salvos`);
         }
 
-        // Atualizar histórico como processado
         const updatedRecord = await this.updateImportHistory(importRecord.id, {
           status: 'processado',
           productsFound: fileData.products?.length || 0,
@@ -1021,12 +1088,9 @@ export class DatabaseStorage implements IStorage {
           processedAt: new Date()
         });
 
-        console.log('✅ Importação finalizada com sucesso!');
         return updatedRecord;
 
       } catch (processError) {
-        console.error('❌ Erro no processamento:', processError);
-        
         if (importRecord) {
           try {
             await this.updateImportHistory(importRecord.id, {
@@ -1034,7 +1098,6 @@ export class DatabaseStorage implements IStorage {
               errorMessage: processError instanceof Error ? processError.message : 'Erro desconhecido'
             });
           } catch (updateError) {
-            console.error('❌ Erro ao atualizar status para erro:', updateError);
           }
         }
         
@@ -1042,12 +1105,10 @@ export class DatabaseStorage implements IStorage {
       }
 
     } catch (error) {
-      console.error('❌ Erro geral no processNfeImport:', error);
       throw new Error(`Erro na importação: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     }
   }
 
-  // 🔥 MÉTODOS PARA CADASTRO
   async createEmpresa(empresa: InsertEmpresa): Promise<Empresa> {
     const id = randomUUID();
     const empresaData: Empresa = {
@@ -1056,7 +1117,7 @@ export class DatabaseStorage implements IStorage {
       status: 'pendente',
       dataAprovacao: null,
       plano: 'starter',
-      dataExpiracao: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 dias
+      dataExpiracao: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -1097,7 +1158,7 @@ export class DatabaseStorage implements IStorage {
     const verificacaoData: EmailVerificacao = {
       ...verificacao,
       id,
-      expiraEm: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 horas
+      expiraEm: new Date(Date.now() + 24 * 60 * 60 * 1000),
       utilizado: false,
       createdAt: new Date()
     };
@@ -1133,33 +1194,22 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  // MÉTODO cadastrarUsuarioIndividual CORRIGIDO
   async cadastrarUsuarioIndividual(dados: CadastroUsuario): Promise<{user: User, token: string}> {
     try {
-      console.log('📝 Iniciando cadastro de usuário individual...');
-      
-      // Verificar se é o admin (email especial)
       const isAdmin = dados.email === 'admin@stockmaster.com';
       
-      console.log(`🔍 Verificando email: ${dados.email} (admin: ${isAdmin})`);
-      
-      // Verificar se email já existe (exceto para admin durante setup)
       if (!isAdmin) {
         const usuarioExistente = await this.getUserByEmail(dados.email);
         if (usuarioExistente) {
-          console.log('❌ Email já existe:', dados.email);
           throw new Error("Já existe um usuário com este email");
         }
       } else {
-        // Para admin, verificar se já existe
         const adminExistente = await this.getUserByEmail(dados.email);
         if (adminExistente) {
-          console.log('❌ Admin já existe');
           throw new Error("Usuário admin já existe");
         }
       }
 
-      // Gerar username único
       const baseUsername = dados.nome.toLowerCase().replace(/\s+/g, '.');
       let username = baseUsername;
       let counter = 1;
@@ -1167,70 +1217,54 @@ export class DatabaseStorage implements IStorage {
       while (await this.getUserByUsername(username)) {
         username = `${baseUsername}${counter}`;
         counter++;
-        if (counter > 10) break; // Prevenir loop infinito
+        if (counter > 10) break;
       }
 
-      console.log(`👤 Criando usuário com username: ${username}`);
-
-      // Criar usuário
       const user = await this.createUser({
         username,
         password: dados.senha,
         name: dados.nome,
         email: dados.email,
         tipo: 'individual',
-        role: isAdmin ? 'super_admin' : 'user', // 🔥 DEFINE ROLE
-        // 🔥 ADMIN: Marcar como verificado automaticamente
+        role: isAdmin ? 'super_admin' : 'user',
         emailVerificado: isAdmin
       });
 
-      // Gerar token de verificação (apenas para não-admins)
       const token = isAdmin ? 'admin-auto-verified' : randomUUID();
       
       if (!isAdmin) {
-        console.log(`🔐 Criando token de verificação para: ${user.email}`);
         await this.createEmailVerificacao({
           userId: user.id,
           email: user.email,
           token,
           tipo: 'cadastro'
         });
-      } else {
-        console.log('⚡ Admin criado - sem verificação necessária');
       }
 
-      console.log('✅ Cadastro de usuário individual concluído com sucesso');
       return { user, token };
 
     } catch (error) {
-      console.error('❌ Erro no cadastrarUsuarioIndividual:', error);
-      throw error; // Re-lançar o erro para ser tratado no route
+      throw error;
     }
   }
 
   async cadastrarEmpresa(dados: CadastroEmpresa): Promise<{empresa: Empresa, admin: User, token: string}> {
     try {
-      console.log('🏢 Iniciando cadastro de empresa...');
-      
-      // Verificar se CNPJ já existe
       const empresaExistente = await this.getEmpresaByCnpj(dados.empresaCnpj);
       if (empresaExistente) {
         throw new Error("Já existe uma empresa cadastrada com este CNPJ");
       }
 
-      // Verificar se email da empresa já existe
       const emailEmpresaExistente = await this.getEmpresaByEmail(dados.empresaEmail);
       if (emailEmpresaExistente) {
         throw new Error("Já existe uma empresa cadastrada com este email");
       }
 
-      // Verificar se email do admin já existe
       const adminExistente = await this.getUserByEmail(dados.adminEmail);
       if (adminExistente) {
         throw new Error("Já existe um usuário com este email de administrador");
       }
 
-      // Criar empresa
       const empresa = await this.createEmpresa({
         nome: dados.empresaNome,
         cnpj: dados.empresaCnpj,
@@ -1245,9 +1279,6 @@ export class DatabaseStorage implements IStorage {
         estado: dados.empresaEstado
       });
 
-      console.log(`🏢 Empresa criada: ${empresa.nome}`);
-
-      // Gerar username único para admin
       const baseUsername = dados.adminNome.toLowerCase().replace(/\s+/g, '.');
       let username = baseUsername;
       let counter = 1;
@@ -1258,20 +1289,16 @@ export class DatabaseStorage implements IStorage {
         if (counter > 10) break;
       }
 
-      console.log(`👤 Criando admin com username: ${username}`);
-
-      // Criar usuário administrador
       const admin = await this.createUser({
         username,
         password: dados.adminSenha,
         name: dados.adminNome,
         email: dados.adminEmail,
         tipo: 'empresa',
-        role: 'admin', // 🔥 ADMIN DA EMPRESA
+        role: 'admin',
         empresaId: empresa.id
       });
 
-      // Gerar token de verificação
       const token = randomUUID();
       await this.createEmailVerificacao({
         userId: admin.id,
@@ -1280,23 +1307,18 @@ export class DatabaseStorage implements IStorage {
         tipo: 'cadastro'
       });
 
-      console.log('✅ Cadastro de empresa concluído com sucesso');
       return { empresa, admin, token };
 
     } catch (error) {
-      console.error('❌ Erro no cadastrarEmpresa:', error);
       throw error;
     }
   }
-
-  // 🔥 NOVOS MÉTODOS DE PERMISSÕES
 
   async getUsersByEmpresa(empresaId: string): Promise<User[]> {
     try {
       const result = await db.select().from(users).where(eq(users.empresaId, empresaId));
       return result;
     } catch (error) {
-      console.error('❌ Erro ao buscar usuários da empresa:', error);
       return [];
     }
   }
@@ -1307,15 +1329,11 @@ export class DatabaseStorage implements IStorage {
 
   async createUserForEmpresa(userData: any, empresaId: string, createdBy: string): Promise<User> {
     try {
-      console.log('👥 Criando usuário para empresa...', { userData, empresaId, createdBy });
-
-      // Verificar se email já existe
       const existingUser = await this.getUserByEmail(userData.email);
       if (existingUser) {
         throw new Error("Já existe um usuário com este email");
       }
 
-      // Gerar username único
       const baseUsername = userData.name.toLowerCase().replace(/\s+/g, '.');
       let username = baseUsername;
       let counter = 1;
@@ -1326,10 +1344,9 @@ export class DatabaseStorage implements IStorage {
         if (counter > 10) break;
       }
 
-      // Criar usuário
       const user = await this.createUser({
         username,
-        password: userData.password || '123456', // Senha padrão
+        password: userData.password || '123456',
         name: userData.name,
         email: userData.email,
         tipo: 'empresa',
@@ -1338,7 +1355,6 @@ export class DatabaseStorage implements IStorage {
         emailVerificado: false
       });
 
-      // Gerar token de verificação
       const token = randomUUID();
       await this.createEmailVerificacao({
         userId: user.id,
@@ -1347,11 +1363,9 @@ export class DatabaseStorage implements IStorage {
         tipo: 'cadastro'
       });
 
-      console.log('✅ Usuário criado para empresa com sucesso');
       return user;
 
     } catch (error) {
-      console.error('❌ Erro ao criar usuário para empresa:', error);
       throw error;
     }
   }
@@ -1362,51 +1376,31 @@ export class DatabaseStorage implements IStorage {
       const updated = await this.getUser(userId);
       if (!updated) throw new Error("Usuário não encontrado");
       
-      console.log(`✅ Role do usuário ${userId} atualizado para: ${role}`);
       return updated;
     } catch (error) {
-      console.error('❌ Erro ao atualizar role do usuário:', error);
       throw error;
     }
   }
 
-  // 🔥 MÉTODO deleteUser CORRIGIDO
   async deleteUser(userId: string): Promise<void> {
     try {
-      // Não permitir deletar o próprio usuário
       const currentUser = await this.getUser(userId);
       if (!currentUser) {
         throw new Error("Usuário não encontrado");
       }
 
-      // Não permitir deletar super_admin
       if (currentUser.role === 'super_admin') {
         throw new Error("Não é possível deletar um Super Admin");
       }
 
-      // 🔥 CORREÇÃO: Primeiro deletar registros relacionados
-      console.log(`🗑️ Deletando registros relacionados do usuário: ${userId}`);
-      
-      // Deletar tokens de verificação de email
       try {
         await db.delete(emailVerificacoes).where(eq(emailVerificacoes.userId, userId));
-        console.log(`✅ Tokens de verificação deletados para usuário: ${userId}`);
       } catch (emailError) {
-        console.error(`⚠️ Erro ao deletar tokens de verificação:`, emailError);
       }
 
-      // 🔥 ADICIONAR AQUI OUTRAS EXCLUSÕES SE NECESSÁRIO:
-      // - Movimentações relacionadas ao usuário
-      // - Inventários criados pelo usuário
-      // - Relatórios gerados pelo usuário
-      // - Importações feitas pelo usuário
-
-      // Agora deletar o usuário
       await db.delete(users).where(eq(users.id, userId));
-      console.log(`✅ Usuário ${userId} deletado com sucesso`);
 
     } catch (error) {
-      console.error('❌ Erro ao deletar usuário:', error);
       throw error;
     }
   }
@@ -1416,7 +1410,6 @@ export class DatabaseStorage implements IStorage {
       const user = await this.getUser(userId);
       if (!user) return false;
 
-      // 🔥 DEFINIÇÃO DE PERMISSÕES POR ROLE
       const permissions = {
         'super_admin': {
           produtos: ['view', 'create', 'edit', 'delete'],
@@ -1429,7 +1422,7 @@ export class DatabaseStorage implements IStorage {
         },
         'admin': {
           produtos: ['view', 'create', 'edit', 'delete'],
-          usuarios: ['view', 'create', 'edit'], // Não pode deletar super_admin
+          usuarios: ['view', 'create', 'edit'],
           relatorios: ['view', 'create', 'export'],
           configuracoes: ['view'],
           importacao: ['view', 'create', 'delete'],
@@ -1438,9 +1431,9 @@ export class DatabaseStorage implements IStorage {
         },
         'user': {
           produtos: ['view'],
-          usuarios: [], // Sem acesso
+          usuarios: [],
           relatorios: ['view'],
-          configuracoes: [], // Sem acesso
+          configuracoes: [],
           importacao: ['view'],
           movimentacoes: ['view', 'create'],
           inventarios: ['view']
@@ -1450,7 +1443,6 @@ export class DatabaseStorage implements IStorage {
       const userPermissions = permissions[user.role as keyof typeof permissions];
       return userPermissions && module in userPermissions && userPermissions[module as keyof typeof userPermissions].length > 0;
     } catch (error) {
-      console.error('❌ Erro ao verificar permissões:', error);
       return false;
     }
   }
@@ -1460,7 +1452,6 @@ export class DatabaseStorage implements IStorage {
       const user = await this.getUser(userId);
       if (!user) return {};
 
-      // 🔥 PERMISSÕES DETALHADAS
       const permissions = {
         'super_admin': {
           dashboard: { view: true, edit: true },
@@ -1484,7 +1475,7 @@ export class DatabaseStorage implements IStorage {
           inventarios: { view: true, create: true, edit: true, delete: true },
           relatorios: { view: true, create: true, export: true },
           importacao: { view: true, create: true, delete: true },
-          usuarios: { view: true, create: true, edit: true }, // Não pode deletar
+          usuarios: { view: true, create: true, edit: true },
           configuracoes: { view: true, edit: false },
           empresas: { view: false, create: false, edit: false, delete: false }
         },
@@ -1505,7 +1496,6 @@ export class DatabaseStorage implements IStorage {
 
       return permissions[user.role as keyof typeof permissions] || {};
     } catch (error) {
-      console.error('❌ Erro ao buscar permissões do usuário:', error);
       return {};
     }
   }

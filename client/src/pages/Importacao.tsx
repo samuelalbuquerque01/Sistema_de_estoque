@@ -1,4 +1,4 @@
-// Importacao.tsx - Versão Corrigida e Melhorada
+// Importacao.tsx - VERSÃO LIMPA
 import { useState, useRef } from "react";
 import { 
   Upload, 
@@ -48,7 +48,6 @@ export default function Importacao() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const validateXmlFile = (file: File): boolean => {
-    // Validações mais robustas
     if (!file.name.toLowerCase().endsWith('.xml')) {
       toast.error('Apenas arquivos XML são suportados');
       return false;
@@ -59,7 +58,7 @@ export default function Importacao() {
       return false;
     }
 
-    if (file.size > 10 * 1024 * 1024) { // 10MB limite
+    if (file.size > 10 * 1024 * 1024) {
       toast.error('Arquivo muito grande. Máximo 10MB permitido.');
       return false;
     }
@@ -75,7 +74,6 @@ export default function Importacao() {
 
     const importId = Date.now().toString();
     
-    // Adicionar item de histórico como "processando"
     const processingImport: ImportHistory = {
       id: importId,
       fileName: file.name,
@@ -93,7 +91,6 @@ export default function Importacao() {
       const formData = new FormData();
       formData.append('file', file);
 
-      // Simular progresso de upload
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => {
           if (prev >= 90) {
@@ -119,7 +116,6 @@ export default function Importacao() {
 
       const result: ProcessResult = await response.json();
       
-      // Atualizar histórico com sucesso
       const successImport: ImportHistory = {
         ...processingImport,
         status: 'processado',
@@ -136,7 +132,6 @@ export default function Importacao() {
       toast.success(`${result.productsProcessed} produtos importados da nota fiscal ${result.nfeData.documentNumber}`);
 
     } catch (error) {
-      // Atualizar histórico com erro
       const failedImport: ImportHistory = {
         ...processingImport,
         status: 'erro',
@@ -156,14 +151,13 @@ export default function Importacao() {
       setIsProcessing(false);
       setUploadProgress(0);
       
-      // Limpar input file
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
     }
   };
 
-  const downloadFromSefaz = async (nfeKey: string, fileName: string) => {
+  const downloadFromSefaz = async (nfeKey: string) => {
     try {
       toast.info('Iniciando download da SEFAZ...');
       
@@ -201,13 +195,11 @@ export default function Importacao() {
       
       toast.success('Nota fiscal baixada com sucesso!');
     } catch (error) {
-      console.error('Erro no download:', error);
       toast.error(`Erro ao baixar: ${error instanceof Error ? error.message : 'Tente novamente'}`);
     }
   };
 
   const openSefazConsulta = (nfeKey: string) => {
-    // URL oficial de consulta da SEFAZ
     const sefazUrl = `https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConteudo=XbSeqxE8pl8=&chave=${nfeKey}`;
     window.open(sefazUrl, '_blank', 'noopener,noreferrer');
   };
@@ -241,7 +233,6 @@ export default function Importacao() {
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     
-    // Só sai do estado de drag se o mouse sair da área do dropzone
     if (e.currentTarget.contains(e.relatedTarget as Node)) return;
     setIsDragging(false);
   };
@@ -421,7 +412,7 @@ export default function Importacao() {
                           <Button
                             variant="default"
                             size="sm"
-                            onClick={() => downloadFromSefaz(item.nfeKey, item.fileName)}
+                            onClick={() => downloadFromSefaz(item.nfeKey)}
                             className="flex items-center gap-2"
                           >
                             <Download className="h-4 w-4" />

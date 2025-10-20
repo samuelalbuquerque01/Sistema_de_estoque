@@ -1,7 +1,7 @@
-// client/src/pages/Login.tsx - VERSÃO CORRIGIDA E PROFISSIONAL
+// client/src/pages/Login.tsx - VERSÃO CORRIGIDA (1 CLICK)
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { Package, Lock, Mail, ArrowRight, Eye, EyeOff } from "lucide-react";
+import { Lock, Mail, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,9 +14,7 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
 
-  // Verificar se há mensagens na URL
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const message = urlParams.get('message');
@@ -34,6 +32,11 @@ export default function Login() {
         description: 'Sua conta foi ativada com sucesso.'
       });
     }
+
+    if (message) {
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+    }
   }, []);
 
   const loginMutation = useMutation({
@@ -46,44 +49,52 @@ export default function Login() {
         body: JSON.stringify(credentials),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Erro no login');
+        throw new Error(data.error || data.message || 'Erro no login');
       }
 
-      return response.json();
+      return data;
     },
     onSuccess: (user) => {
-      console.log('✅ Login bem-sucedido:', user);
       localStorage.setItem('user', JSON.stringify(user));
-      toast.success('Login realizado!', {
-        description: `Bem-vindo, ${user.name}!`
+      
+      toast.success(`Bem-vindo, ${user.name || 'Usuário'}!`, {
+        description: 'Login realizado com sucesso.'
       });
-      setLocation('/');
+
+      setTimeout(() => {
+        setLocation('/');
+      }, 100);
     },
     onError: (error: Error) => {
-      console.error('❌ Erro no login:', error);
+      const errorMessage = error.message.toLowerCase();
       
-      if (error.message.includes('Email não verificado')) {
+      if (errorMessage.includes('não verificado') || errorMessage.includes('verificado')) {
         toast.error('Email não verificado', {
           description: 'Verifique seu email antes de fazer login.',
           action: {
             label: 'Reenviar verificação',
-            onClick: () => handleResendVerification()
+            onClick: () => handleResendVerification(email)
           },
+        });
+      } else if (errorMessage.includes('credenciais') || errorMessage.includes('incorretos')) {
+        toast.error('Credenciais inválidas', {
+          description: 'Verifique seu email e senha.'
         });
       } else {
         toast.error('Erro no login', {
-          description: error.message
+          description: error.message || 'Tente novamente'
         });
       }
     }
   });
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!email || !password) {
+
+    if (!email.trim() || !password.trim()) {
       toast.error('Campos obrigatórios', {
         description: 'Preencha email e senha'
       });
@@ -97,25 +108,24 @@ export default function Login() {
       return;
     }
 
-    loginMutation.mutate({ email, password });
+    loginMutation.mutate({ email: email.trim(), password });
   };
 
-  const handleResendVerification = async () => {
-    if (!email) {
+  const handleResendVerification = async (emailToResend: string) => {
+    if (!emailToResend) {
       toast.error('Email necessário', {
         description: 'Digite seu email para reenviar a verificação'
       });
       return;
     }
 
-    setIsLoading(true);
     try {
       const response = await fetch('/api/auth/reenviar-verificacao', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: emailToResend }),
       });
 
       if (response.ok) {
@@ -130,8 +140,6 @@ export default function Login() {
       toast.error('Erro ao reenviar', {
         description: error instanceof Error ? error.message : 'Tente novamente'
       });
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -140,72 +148,75 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Header Moderno */}
         <div className="text-center mb-8">
-          <div className="inline-flex h-20 w-20 rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 items-center justify-center mb-4 shadow-lg">
-            <Package className="h-10 w-10 text-white" />
+          <div className="inline-flex h-20 w-20 rounded-2xl bg-white items-center justify-center mb-4 shadow-lg border border-green-200">
+            <img 
+              src="https://www.neuropsicocentro.com.br/img/logo.png" 
+              alt="Neuropsicocentro" 
+              className="h-12 w-12 object-contain"
+            />
           </div>
-          <h1 className="text-4xl font-bold text-white mb-2">StockMaster</h1>
-          <p className="text-slate-300 text-lg">Controle Inteligente de Estoque</p>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Neuropsicocentro</h1>
+          <p className="text-gray-600 text-lg">Controle Inteligente de Estoque</p>
         </div>
 
-        <Card className="bg-slate-800 border-slate-700 shadow-xl">
+        <Card className="shadow-lg border-0">
           <CardHeader className="text-center pb-4">
-            <CardTitle className="text-2xl text-white">Acessar Sistema</CardTitle>
-            <CardDescription className="text-slate-400">
+            <CardTitle className="text-2xl text-gray-900">Acessar Sistema</CardTitle>
+            <CardDescription className="text-gray-600">
               Entre com suas credenciais para continuar
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-6">
-              {/* Campo Email */}
               <div className="space-y-3">
-                <Label htmlFor="email" className="text-white">Email</Label>
+                <Label htmlFor="email" className="text-gray-900">Email</Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400" />
+                  <Mail className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                   <Input
                     id="email"
                     type="email"
                     placeholder="seu@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10 pr-4 py-3 bg-slate-700 border-slate-600 text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="pl-10 pr-4 py-3 bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-transparent h-12"
                     disabled={loginMutation.isPending}
+                    autoComplete="email"
                   />
                 </div>
               </div>
 
-              {/* Campo Senha */}
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <Label htmlFor="password" className="text-white">Senha</Label>
+                  <Label htmlFor="password" className="text-gray-900">Senha</Label>
                   <Button
                     type="button"
                     variant="link"
-                    className="text-blue-400 hover:text-blue-300 p-0 h-auto text-sm"
-                    onClick={() => {/* Implementar recuperação de senha */}}
+                    className="text-green-600 hover:text-green-700 p-0 h-auto text-sm"
+                    onClick={() => {}}
                   >
                     Esqueceu a senha?
                   </Button>
                 </div>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400" />
+                  <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
                     placeholder="Sua senha"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10 pr-12 py-3 bg-slate-700 border-slate-600 text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="pl-10 pr-12 py-3 bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-transparent h-12"
                     disabled={loginMutation.isPending}
+                    autoComplete="current-password"
                   />
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0 text-slate-400 hover:text-white hover:bg-slate-600"
+                    className="absolute right-2 top-2 h-8 w-8 p-0 text-gray-400 hover:text-gray-600 hover:bg-gray-100"
                     onClick={() => setShowPassword(!showPassword)}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -213,10 +224,9 @@ export default function Login() {
                 </div>
               </div>
 
-              {/* Botão Login */}
               <Button 
                 type="submit" 
-                className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold text-lg shadow-lg transition-all duration-200"
+                className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-semibold text-lg shadow-lg transition-all duration-200 h-12"
                 disabled={loginMutation.isPending}
               >
                 {loginMutation.isPending ? (
@@ -229,46 +239,33 @@ export default function Login() {
                 )}
               </Button>
 
-              {/* Divisor */}
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-slate-600" />
+                  <span className="w-full border-t border-gray-300" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-slate-800 px-3 text-slate-400">
+                  <span className="bg-white px-3 text-gray-500">
                     Novo por aqui?
                   </span>
                 </div>
               </div>
 
-              {/* Botão Cadastro */}
               <Button 
                 type="button"
                 variant="outline" 
-                className="w-full py-3 border-slate-600 text-white hover:bg-slate-700 hover:text-white font-semibold"
+                className="w-full py-3 border-gray-300 text-gray-700 hover:bg-gray-50 hover:text-gray-900 font-semibold h-12"
                 onClick={() => setLocation('/cadastro')}
+                disabled={loginMutation.isPending}
               >
                 <ArrowRight className="h-5 w-5 mr-2" />
                 Criar Nova Conta
               </Button>
             </form>
-
-            {/* Credenciais de Teste */}
-            <div className="mt-6 p-4 bg-slate-700/50 rounded-lg border border-slate-600">
-              <p className="text-slate-300 text-sm font-medium text-center mb-2">Credenciais de Teste</p>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="text-slate-400">Email:</div>
-                <div className="text-white font-mono">admin@stockmaster.com</div>
-                <div className="text-slate-400">Senha:</div>
-                <div className="text-white font-mono">admin123</div>
-              </div>
-            </div>
           </CardContent>
         </Card>
 
-        {/* Rodapé */}
-        <p className="text-center text-slate-400 text-sm mt-6">
-          © 2025 StockMaster. Todos os direitos reservados.
+        <p className="text-center text-gray-600 text-sm mt-6">
+          © 2025 Sistema de Estoque. Todos os direitos reservados.
         </p>
       </div>
     </div>

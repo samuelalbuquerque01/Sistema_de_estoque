@@ -1,9 +1,10 @@
-// Produtos.tsx - CÓDIGO COMPLETO CORRIGIDO
+// Produtos.tsx - CÓDIGO COMPLETO ATUALIZADO COM MODAL PROFISSIONAL
 import { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ProductTable from "@/components/ProductTable";
 import ProductForm from "@/components/ProductForm";
+import ProductViewModal from "@/components/ProductViewModal";
 import SearchBar from "@/components/SearchBar";
 import {
   Dialog,
@@ -19,7 +20,6 @@ interface ProdutosProps {
   description?: string;
 }
 
-// Interface do produto vinda da API
 interface Product {
   id: string;
   code: string;
@@ -45,7 +45,6 @@ interface Location {
   description?: string;
 }
 
-// Interface para o ProductTable (com nomes em vez de IDs)
 interface DisplayProduct {
   id: string;
   code: string;
@@ -73,8 +72,9 @@ export default function Produtos({
   const [error, setError] = useState<string | null>(null);
   const [editingProduct, setEditingProduct] = useState<DisplayProduct | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [viewingProduct, setViewingProduct] = useState<DisplayProduct | null>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
-  // Carregar dados da API
   useEffect(() => {
     fetchData();
   }, []);
@@ -102,14 +102,12 @@ export default function Produtos({
       setCategories(categoriesData);
       setLocations(locationsData);
     } catch (error) {
-      console.error('Erro ao carregar dados:', error);
       setError('Erro ao carregar dados. Tente novamente.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Função para converter IDs em nomes para exibição
   const getProductForDisplay = (product: Product): DisplayProduct => {
     const category = categories.find(cat => cat.id === product.categoryId);
     const location = locations.find(loc => loc.id === product.locationId);
@@ -128,7 +126,6 @@ export default function Produtos({
     };
   };
 
-  // Função para gerar código único
   const generateUniqueCode = (baseCode: string): string => {
     const existingCodes = products.map(p => p.code);
     let newCode = baseCode;
@@ -142,12 +139,8 @@ export default function Produtos({
     return newCode;
   };
 
-  // 🔥 FUNÇÃO VISUALIZAR PRODUTO COMPLETA
   const handleViewProduct = async (product: DisplayProduct) => {
     try {
-      console.log('👀 Visualizando produto:', product);
-      
-      // Buscar dados completos do produto da API
       const response = await fetch(`/api/products/${product.id}`);
       
       if (!response.ok) {
@@ -156,48 +149,37 @@ export default function Produtos({
 
       const productDetails = await response.json();
       
-      // Buscar categoria e localização reais
       const category = categories.find(cat => cat.id === productDetails.categoryId);
       const location = locations.find(loc => loc.id === productDetails.locationId);
       
-      // Mostrar detalhes completos
-      const detailsMessage = `
-📦 DETALHES DO PRODUTO
+      const productForModal: DisplayProduct = {
+        id: productDetails.id,
+        code: productDetails.code,
+        name: productDetails.name,
+        category: category?.name || 'Desconhecida',
+        location: location?.name || 'Desconhecido',
+        quantity: productDetails.quantity,
+        minQuantity: productDetails.minQuantity,
+        unitPrice: productDetails.unitPrice,
+        type: productDetails.type,
+        description: productDetails.description
+      };
 
-🔹 Código: ${productDetails.code}
-🔹 Nome: ${productDetails.name}
-🔹 Categoria: ${category?.name || 'Desconhecida'}
-🔹 Localização: ${location?.name || 'Desconhecido'}
-🔹 Quantidade: ${productDetails.quantity}
-🔹 Estoque Mínimo: ${productDetails.minQuantity}
-🔹 Preço Unitário: R$ ${parseFloat(productDetails.unitPrice || '0').toFixed(2)}
-🔹 Tipo: ${productDetails.type}
-🔹 Descrição: ${productDetails.description || 'Nenhuma descrição'}
+      setViewingProduct(productForModal);
+      setIsViewModalOpen(true);
 
-📊 Status: ${productDetails.quantity === 0 ? 'SEM ESTOQUE' : 
-              productDetails.quantity <= productDetails.minQuantity ? 'ESTOQUE BAIXO' : 'NORMAL'}
-      `.trim();
-
-      alert(detailsMessage);
-      
     } catch (error) {
-      console.error('❌ Erro ao visualizar produto:', error);
       alert('Erro ao carregar detalhes do produto:\n' + (error as Error).message);
     }
   };
 
-  // 🔥 FUNÇÃO EDITAR PRODUTO COMPLETA
   const handleEditProduct = async (product: DisplayProduct) => {
     try {
-      console.log('📝 Iniciando edição do produto:', product);
-      
-      // Buscar o produto original para obter os IDs
       const originalProduct = products.find(p => p.id === product.id);
       if (!originalProduct) {
         throw new Error('Produto não encontrado');
       }
 
-      // Buscar dados completos do produto
       const response = await fetch(`/api/products/${product.id}`);
       if (!response.ok) {
         throw new Error('Erro ao buscar dados do produto para edição');
@@ -205,7 +187,6 @@ export default function Produtos({
 
       const productDetails = await response.json();
       
-      // Preparar dados para edição
       const productToEdit: DisplayProduct = {
         id: productDetails.id,
         code: productDetails.code,
@@ -219,25 +200,18 @@ export default function Produtos({
         description: productDetails.description
       };
 
-      // Configurar produto para edição e abrir dialog
       setEditingProduct(productToEdit);
       setIsEditDialogOpen(true);
 
     } catch (error) {
-      console.error('❌ Erro ao preparar edição do produto:', error);
       alert('Erro ao carregar dados do produto para edição:\n' + (error as Error).message);
     }
   };
 
-  // 🔥 FUNÇÃO PARA SALVAR EDIÇÃO DO PRODUTO
   const handleSaveEdit = async (formData: any) => {
     try {
       if (!editingProduct) return;
 
-      console.log('💾 Salvando edição do produto:', editingProduct.id);
-      console.log('Dados do formulário:', formData);
-
-      // Encontrar IDs da categoria e localização selecionadas
       const selectedCategory = categories.find(cat => cat.name === formData.categoryId);
       const selectedLocation = locations.find(loc => loc.name === formData.locationId);
 
@@ -245,15 +219,12 @@ export default function Produtos({
         throw new Error('Categoria ou localização inválida');
       }
 
-      // Preparar dados para envio
       const dataToSend = {
         ...formData,
         categoryId: selectedCategory.id,
         locationId: selectedLocation.id,
-        unitPrice: formData.unitPrice.toString() // Garantir que é string
+        unitPrice: formData.unitPrice.toString()
       };
-
-      console.log('Dados enviados para API:', dataToSend);
 
       const response = await fetch(`/api/products/${editingProduct.id}`, {
         method: 'PUT',
@@ -268,55 +239,38 @@ export default function Produtos({
 
       const updatedProduct = await response.json();
       
-      // Atualizar lista de produtos
       setProducts(prev => prev.map(p => 
         p.id === editingProduct.id ? updatedProduct : p
       ));
 
-      // Fechar dialog e limpar estado
       setIsEditDialogOpen(false);
       setEditingProduct(null);
 
-      console.log('✅ Produto editado com sucesso:', updatedProduct);
       alert('Produto atualizado com sucesso!');
-
-      // Recarregar dados para garantir sincronização
       fetchData();
 
     } catch (error) {
-      console.error('❌ Erro ao editar produto:', error);
       alert('Erro ao editar produto:\n' + (error as Error).message);
     }
   };
 
-  // 🔥 FUNÇÃO PARA CANCELAR EDIÇÃO
   const handleCancelEdit = () => {
     setEditingProduct(null);
     setIsEditDialogOpen(false);
   };
 
-  // Função para adicionar novo produto
   const handleAddProduct = async (formData: any) => {
     try {
-      console.log('=== DEBUG: INICIANDO CADASTRO ===');
-      console.log('Dados do formulário:', formData);
-      
-      // Se o código estiver vazio ou já existir, gerar um automático
       let finalCode = formData.code;
       if (!finalCode || products.some(p => p.code === finalCode)) {
         finalCode = generateUniqueCode('PROD');
-        console.log('Código gerado automaticamente:', finalCode);
       }
       
-      // SOLUÇÃO: Enviar unitPrice como string
       const dataToSend = {
         ...formData,
         code: finalCode,
-        unitPrice: formData.unitPrice.toString() // ← CONVERTER PARA STRING
+        unitPrice: formData.unitPrice.toString()
       };
-
-      console.log('Dados após conversão:', dataToSend);
-      console.log('JSON sendo enviado:', JSON.stringify(dataToSend, null, 2));
 
       const response = await fetch('/api/products', {
         method: 'POST',
@@ -324,14 +278,9 @@ export default function Produtos({
         body: JSON.stringify(dataToSend)
       });
 
-      console.log('Status da resposta:', response.status);
-      console.log('OK?', response.ok);
-
       const responseData = await response.json();
-      console.log('Resposta completa da API:', responseData);
 
       if (!response.ok) {
-        // Mostrar TODOS os detalhes do erro
         if (responseData.details && Array.isArray(responseData.details)) {
           const errorDetails = responseData.details.map((detail: any) => 
             `Campo: ${detail.path?.join('.') || 'desconhecido'}\nErro: ${detail.message}\nValor recebido: ${detail.received}\nEsperado: ${detail.expected}`
@@ -349,16 +298,13 @@ export default function Produtos({
       setProducts(prev => [...prev, newProduct]);
       setIsDialogOpen(false);
       
-      console.log('✅ Produto cadastrado com sucesso:', newProduct);
     } catch (error) {
-      console.error('❌ Erro completo ao cadastrar produto:', error);
       alert('Erro ao cadastrar produto:\n\n' + (error as Error).message);
     }
   };
 
-  // Função para excluir produto
   const handleDeleteProduct = async (product: DisplayProduct) => {
-    if (confirm(`Tem certeza que deseja excluir o produto "${product.name}"?`)) {
+    if (confirm(`Tem certeza que deseja excluir o produto "${product.name}"?\n\nEsta ação não pode ser desfeita.`)) {
       try {
         const response = await fetch(`/api/products/${product.id}`, {
           method: 'DELETE'
@@ -366,28 +312,34 @@ export default function Produtos({
 
         if (response.ok) {
           setProducts(prev => prev.filter(p => p.id !== product.id));
-          console.log('Produto excluído:', product);
           alert('Produto excluído com sucesso!');
+          fetchData();
         } else {
-          throw new Error('Erro ao excluir produto');
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Erro ${response.status} ao excluir produto`);
         }
       } catch (error) {
-        console.error('Erro ao excluir produto:', error);
-        alert('Erro ao excluir produto:\n' + (error as Error).message);
+        let errorMessage = 'Erro ao excluir produto';
+        
+        if (error instanceof Error) {
+          if (error.message.includes('500')) {
+            errorMessage = 'Erro interno do servidor. O produto pode estar vinculado a movimentações ou inventários.';
+          } else {
+            errorMessage = error.message;
+          }
+        }
+        
+        alert(`Erro ao excluir produto:\n\n${errorMessage}\n\nTente novamente ou contate o suporte.`);
       }
     }
   };
 
-  // FILTRO CORRIGIDO: Filtrar produtos por categoria e busca
   const filteredProducts = products
     .filter(product => {
-      // Se não há categoria definida, mostrar todos os produtos
       if (!category) return true;
       
-      // Buscar a categoria do produto para verificar o tipo
       const productCategory = categories.find(cat => cat.id === product.categoryId);
       
-      // Filtrar pelo tipo da categoria
       return productCategory?.type === category;
     })
     .filter(product => 
@@ -469,7 +421,6 @@ export default function Produtos({
         onDelete={handleDeleteProduct}
       />
 
-      {/* Dialog para Novo Produto */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -487,7 +438,6 @@ export default function Produtos({
         </DialogContent>
       </Dialog>
 
-      {/* 🔥 Dialog para Editar Produto */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -512,6 +462,15 @@ export default function Produtos({
           )}
         </DialogContent>
       </Dialog>
+
+      <ProductViewModal
+        product={viewingProduct}
+        isOpen={isViewModalOpen}
+        onClose={() => {
+          setIsViewModalOpen(false);
+          setViewingProduct(null);
+        }}
+      />
     </div>
   );
 }

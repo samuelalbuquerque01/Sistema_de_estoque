@@ -1,4 +1,4 @@
-// src/pages/CadastroUsuario.tsx - CORREÇÃO DO CHECKBOX
+// src/pages/CadastroUsuario.tsx - VERSÃO LIMPA E SEGURA
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 
-// Schema de validação CORRIGIDO
+// Schema de validação
 const usuarioSchema = z.object({
   nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
   email: z.string().email("Email inválido"),
@@ -46,7 +46,6 @@ export default function CadastroUsuario() {
     }
   });
 
-  // 🔥 CORREÇÃO: Funções para lidar com checkboxes
   const handleAceitarTermosChange = (checked: boolean) => {
     setValue("aceitarTermos", checked, { shouldValidate: true });
   };
@@ -59,8 +58,6 @@ export default function CadastroUsuario() {
     setIsLoading(true);
     
     try {
-      console.log('📝 Dados enviados:', data);
-      
       const response = await fetch('/api/auth/cadastro/usuario', {
         method: 'POST',
         headers: {
@@ -79,7 +76,6 @@ export default function CadastroUsuario() {
         throw new Error(errorData.error || 'Erro ao cadastrar usuário');
       }
     } catch (error) {
-      console.error('❌ Erro no cadastro:', error);
       toast.error('Erro no cadastro', {
         description: error instanceof Error ? error.message : 'Tente novamente'
       });
@@ -87,15 +83,6 @@ export default function CadastroUsuario() {
       setIsLoading(false);
     }
   };
-
-  // Observar valores para debug
-  const aceitarTermosValue = watch("aceitarTermos");
-  const newsletterValue = watch("receberNewsletter");
-  
-  console.log('🔍 Valores dos checkboxes:', {
-    aceitarTermos: aceitarTermosValue,
-    receberNewsletter: newsletterValue
-  });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center p-4">
@@ -123,7 +110,7 @@ export default function CadastroUsuario() {
           </p>
         </div>
 
-        <Card>
+        <Card className="shadow-lg border-0">
           <CardContent className="p-6">
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               {/* Dados Pessoais */}
@@ -131,11 +118,11 @@ export default function CadastroUsuario() {
                 <div className="space-y-2">
                   <Label htmlFor="nome">Nome Completo *</Label>
                   <div className="relative">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                     <Input
                       id="nome"
                       placeholder="Seu nome completo"
-                      className="pl-9"
+                      className="pl-10 h-11"
                       {...register('nome')}
                     />
                   </div>
@@ -147,11 +134,11 @@ export default function CadastroUsuario() {
                 <div className="space-y-2">
                   <Label htmlFor="telefone">Telefone *</Label>
                   <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                     <Input
                       id="telefone"
                       placeholder="(11) 99999-9999"
-                      className="pl-9"
+                      className="pl-10 h-11"
                       {...register('telefone')}
                     />
                   </div>
@@ -164,12 +151,12 @@ export default function CadastroUsuario() {
               <div className="space-y-2">
                 <Label htmlFor="email">Email *</Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
                     id="email"
                     type="email"
                     placeholder="seu@email.com"
-                    className="pl-9"
+                    className="pl-10 h-11"
                     {...register('email')}
                   />
                 </div>
@@ -182,12 +169,12 @@ export default function CadastroUsuario() {
                 <div className="space-y-2">
                   <Label htmlFor="senha">Senha *</Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                     <Input
                       id="senha"
                       type="password"
                       placeholder="Mínimo 6 caracteres"
-                      className="pl-9"
+                      className="pl-10 h-11"
                       {...register('senha')}
                     />
                   </div>
@@ -199,12 +186,12 @@ export default function CadastroUsuario() {
                 <div className="space-y-2">
                   <Label htmlFor="confirmarSenha">Confirmar Senha *</Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                     <Input
                       id="confirmarSenha"
                       type="password"
                       placeholder="Digite novamente sua senha"
-                      className="pl-9"
+                      className="pl-10 h-11"
                       {...register('confirmarSenha')}
                     />
                   </div>
@@ -239,15 +226,15 @@ export default function CadastroUsuario() {
                 </ul>
               </div>
 
-              {/* 🔥 CORREÇÃO: Checkboxes com tratamento correto */}
+              {/* Checkboxes */}
               <div className="space-y-4">
-                <div className="flex items-start space-x-2">
+                <div className="flex items-start space-x-3">
                   <Checkbox 
                     id="aceitarTermos" 
                     checked={watch("aceitarTermos")}
                     onCheckedChange={handleAceitarTermosChange}
                   />
-                  <Label htmlFor="aceitarTermos" className="text-sm leading-relaxed">
+                  <Label htmlFor="aceitarTermos" className="text-sm leading-relaxed cursor-pointer">
                     Concordo com os{' '}
                     <Button 
                       type="button"
@@ -272,34 +259,27 @@ export default function CadastroUsuario() {
                   <p className="text-sm text-red-600">{errors.aceitarTermos.message}</p>
                 )}
 
-                <div className="flex items-start space-x-2">
+                <div className="flex items-start space-x-3">
                   <Checkbox 
                     id="receberNewsletter" 
                     checked={watch("receberNewsletter")}
                     onCheckedChange={handleNewsletterChange}
                   />
-                  <Label htmlFor="receberNewsletter" className="text-sm leading-relaxed">
+                  <Label htmlFor="receberNewsletter" className="text-sm leading-relaxed cursor-pointer">
                     Desejo receber novidades e dicas sobre gestão de estoque
                   </Label>
                 </div>
               </div>
 
-              {/* Debug (remover em produção) */}
-              {process.env.NODE_ENV === 'development' && (
-                <div className="p-2 bg-gray-100 rounded text-xs">
-                  <strong>Debug:</strong> aceitarTermos: {String(aceitarTermosValue)}, newsletter: {String(newsletterValue)}
-                </div>
-              )}
-
               {/* Botão de Submit */}
               <Button 
                 type="submit" 
-                className="w-full py-3 text-lg bg-green-600 hover:bg-green-700" 
-                disabled={isLoading}
+                className="w-full py-3 text-lg bg-green-600 hover:bg-green-700 h-12 font-semibold" 
+                disabled={isLoading || !watch("aceitarTermos")}
               >
                 {isLoading ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
                     Criando Conta...
                   </>
                 ) : (

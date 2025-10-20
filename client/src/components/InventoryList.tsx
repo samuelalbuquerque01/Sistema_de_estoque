@@ -88,13 +88,7 @@ export default function InventoryList({ inventories, onView, onFinalize, isLoadi
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    console.log('🔍 InventoryList - Clicou em Visualizar:');
-                    console.log('   Inventário ID:', inventory.id);
-                    console.log('   Tipo do ID:', typeof inventory.id);
-                    console.log('   Inventário objeto:', inventory);
-                    window.location.href = `/inventario/${inventory.id}`;
-                  }}
+                  onClick={() => onView(inventory)}
                 >
                   <Eye className="h-4 w-4 mr-1" />
                   Visualizar

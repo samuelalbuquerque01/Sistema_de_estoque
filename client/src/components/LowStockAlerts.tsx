@@ -1,4 +1,4 @@
-// components/LowStockAlerts.tsx - VERSÃO CORRIGIDA
+// components/LowStockAlerts.tsx
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, PackageX, ArrowRight } from "lucide-react";
@@ -53,7 +53,6 @@ export default function LowStockAlerts({ alerts, onViewAll }: LowStockAlertsProp
           </div>
         ) : (
           <div className="space-y-3">
-            {/* Alertas Críticos */}
             {criticalAlerts.length > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-2">
@@ -62,7 +61,7 @@ export default function LowStockAlerts({ alerts, onViewAll }: LowStockAlertsProp
                     Crítico ({criticalAlerts.length})
                   </span>
                 </div>
-                {criticalAlerts.slice(0, 3).map((alert, index) => (
+                {criticalAlerts.slice(0, 3).map((alert) => (
                   <div key={alert.product.id} className="flex items-center justify-between p-2 bg-red-50 rounded-lg">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{alert.product.name}</p>
@@ -76,7 +75,6 @@ export default function LowStockAlerts({ alerts, onViewAll }: LowStockAlertsProp
               </div>
             )}
 
-            {/* Alertas de Aviso */}
             {warningAlerts.length > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-2">
@@ -85,7 +83,7 @@ export default function LowStockAlerts({ alerts, onViewAll }: LowStockAlertsProp
                     Aviso ({warningAlerts.length})
                   </span>
                 </div>
-                {warningAlerts.slice(0, 2).map((alert, index) => (
+                {warningAlerts.slice(0, 2).map((alert) => (
                   <div key={alert.product.id} className="flex items-center justify-between p-2 bg-amber-50 rounded-lg">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{alert.product.name}</p>

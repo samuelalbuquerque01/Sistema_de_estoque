@@ -1,3 +1,4 @@
+// components/ProductForm.tsx
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -30,26 +31,51 @@ const productSchema = z.object({
   minQuantity: z.coerce.number().min(0, "Quantidade mínima deve ser maior ou igual a 0"),
   unitPrice: z.coerce.number().min(0, "Preço deve ser maior ou igual a 0"),
   description: z.string().optional(),
-  type: z.string().min(1, "Tipo é obrigatório"),
 });
 
 type ProductFormValues = z.infer<typeof productSchema>;
+
+interface Category {
+  id: string;
+  name: string;
+  type: string;
+}
+
+interface Location {
+  id: string;
+  name: string;
+  description?: string;
+}
 
 interface ProductFormProps {
   onSubmit: (data: ProductFormValues) => void;
   onCancel?: () => void;
   defaultValues?: Partial<ProductFormValues>;
-  categories: { id: string; name: string }[];
-  locations: { id: string; name: string }[];
+  categories: Category[];
+  locations: Location[];
+  isEditing?: boolean;
 }
+
+// Categorias pré-definidas para simplificar
+const predefinedCategories = [
+  { id: "limpeza", name: "Produtos de Limpeza", type: "limpeza" },
+  { id: "ferramenta", name: "Ferramentas", type: "ferramenta" },
+  { id: "insumo", name: "Insumos", type: "insumo" },
+  { id: "equipamento", name: "Equipamentos", type: "equipamento" },
+  { id: "material", name: "Materiais", type: "material" },
+  { id: "outros", name: "Outros", type: "outros" },
+];
 
 export default function ProductForm({ 
   onSubmit, 
   onCancel,
   defaultValues,
-  categories,
-  locations 
+  categories = predefinedCategories, // Usa as categorias pré-definidas por padrão
+  locations,
+  isEditing = false
 }: ProductFormProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
     defaultValues: defaultValues || {
@@ -61,22 +87,55 @@ export default function ProductForm({
       minQuantity: 0,
       unitPrice: 0,
       description: "",
-      type: "",
     },
   });
 
+  const handleSubmit = async (data: ProductFormValues) => {
+    try {
+      setIsSubmitting(true);
+      
+      const dataToSubmit = {
+        ...data,
+        unitPrice: data.unitPrice.toString()
+      };
+      
+      await onSubmit(dataToSubmit);
+    } catch (error) {
+      console.error('Erro no submit do formulário:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const generateAutoCode = () => {
+    const baseCode = 'PROD';
+    const timestamp = Date.now().toString().slice(-4);
+    const random = Math.floor(Math.random() * 100).toString().padStart(2, '0');
+    return `${baseCode}-${timestamp}${random}`;
+  };
+
+  const handleGenerateCode = () => {
+    if (!isEditing && !form.getValues('code')) {
+      form.setValue('code', generateAutoCode());
+    }
+  };
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
             control={form.control}
             name="name"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Nome do Produto</FormLabel>
+                <FormLabel>Nome do Produto *</FormLabel>
                 <FormControl>
-                  <Input placeholder="Digite o nome" {...field} data-testid="input-name" />
+                  <Input 
+                    placeholder="Digite o nome do produto" 
+                    {...field} 
+                    data-testid="input-name" 
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -88,35 +147,27 @@ export default function ProductForm({
             name="code"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Código</FormLabel>
-                <FormControl>
-                  <Input placeholder="Ex: PROD-001" {...field} data-testid="input-code" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="type"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Tipo</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormLabel>Código *</FormLabel>
+                <div className="flex gap-2">
                   <FormControl>
-                    <SelectTrigger data-testid="select-type">
-                      <SelectValue placeholder="Selecione o tipo" />
-                    </SelectTrigger>
+                    <Input 
+                      placeholder="Ex: PROD-001" 
+                      {...field} 
+                      data-testid="input-code" 
+                      readOnly={isEditing}
+                    />
                   </FormControl>
-                  <SelectContent>
-                    <SelectItem value="produto">Produto</SelectItem>
-                    <SelectItem value="equipamento">Equipamento</SelectItem>
-                    <SelectItem value="insumo">Insumo</SelectItem>
-                    <SelectItem value="ferramenta">Ferramenta</SelectItem>
-                    <SelectItem value="limpeza">Limpeza</SelectItem>
-                  </SelectContent>
-                </Select>
+                  {!isEditing && (
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={handleGenerateCode}
+                      className="whitespace-nowrap"
+                    >
+                      Gerar
+                    </Button>
+                  )}
+                </div>
                 <FormMessage />
               </FormItem>
             )}
@@ -127,17 +178,21 @@ export default function ProductForm({
             name="categoryId"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Categoria</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormLabel>Categoria *</FormLabel>
+                <Select 
+                  onValueChange={field.onChange} 
+                  defaultValue={field.value}
+                  value={field.value}
+                >
                   <FormControl>
                     <SelectTrigger data-testid="select-category">
                       <SelectValue placeholder="Selecione a categoria" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>
-                        {cat.name}
+                    {categories.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -152,19 +207,29 @@ export default function ProductForm({
             name="locationId"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Local</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormLabel>Localização *</FormLabel>
+                <Select 
+                  onValueChange={field.onChange} 
+                  defaultValue={field.value}
+                  value={field.value}
+                >
                   <FormControl>
                     <SelectTrigger data-testid="select-location">
                       <SelectValue placeholder="Selecione o local" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {locations.map((loc) => (
-                      <SelectItem key={loc.id} value={loc.id}>
-                        {loc.name}
+                    {locations.length > 0 ? (
+                      locations.map((location) => (
+                        <SelectItem key={location.id} value={location.id}>
+                          {location.name}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="no-location" disabled>
+                        Nenhum local disponível
                       </SelectItem>
-                    ))}
+                    )}
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -177,9 +242,15 @@ export default function ProductForm({
             name="quantity"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Quantidade</FormLabel>
+                <FormLabel>Quantidade em Estoque *</FormLabel>
                 <FormControl>
-                  <Input type="number" {...field} data-testid="input-quantity" />
+                  <Input 
+                    type="number" 
+                    min="0"
+                    placeholder="0"
+                    {...field} 
+                    data-testid="input-quantity" 
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -191,9 +262,15 @@ export default function ProductForm({
             name="minQuantity"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Quantidade Mínima</FormLabel>
+                <FormLabel>Estoque Mínimo *</FormLabel>
                 <FormControl>
-                  <Input type="number" {...field} data-testid="input-min-quantity" />
+                  <Input 
+                    type="number" 
+                    min="0"
+                    placeholder="0"
+                    {...field} 
+                    data-testid="input-min-quantity" 
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -205,9 +282,16 @@ export default function ProductForm({
             name="unitPrice"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Preço Unitário (R$)</FormLabel>
+                <FormLabel>Preço Unitário (R$) *</FormLabel>
                 <FormControl>
-                  <Input type="number" step="0.01" {...field} data-testid="input-price" />
+                  <Input 
+                    type="number" 
+                    step="0.01" 
+                    min="0"
+                    placeholder="0.00"
+                    {...field} 
+                    data-testid="input-price" 
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -220,11 +304,11 @@ export default function ProductForm({
           name="description"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Descrição (Opcional)</FormLabel>
+              <FormLabel>Descrição</FormLabel>
               <FormControl>
                 <Textarea 
-                  placeholder="Digite uma descrição do produto" 
-                  className="resize-none" 
+                  placeholder="Digite uma descrição detalhada do produto..." 
+                  className="resize-none min-h-[100px]" 
                   {...field} 
                   data-testid="input-description"
                 />
@@ -234,14 +318,42 @@ export default function ProductForm({
           )}
         />
 
-        <div className="flex gap-3 justify-end">
+        <div className="bg-muted/50 p-4 rounded-lg">
+          <h4 className="font-medium text-sm mb-2">Informações:</h4>
+          <ul className="text-xs text-muted-foreground space-y-1">
+            <li>• A categoria define o tipo do produto (limpeza, ferramenta, insumo, etc.)</li>
+            <li>• Campos marcados com * são obrigatórios</li>
+            <li>• O código pode ser gerado automaticamente</li>
+          </ul>
+        </div>
+
+        <div className="flex gap-3 justify-end pt-4 border-t">
           {onCancel && (
-            <Button type="button" variant="outline" onClick={onCancel} data-testid="button-cancel">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={onCancel} 
+              data-testid="button-cancel"
+              disabled={isSubmitting}
+            >
               Cancelar
             </Button>
           )}
-          <Button type="submit" data-testid="button-submit">
-            Salvar Produto
+          <Button 
+            type="submit" 
+            data-testid="button-submit"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Salvando...
+              </>
+            ) : isEditing ? (
+              'Atualizar Produto'
+            ) : (
+              'Cadastrar Produto'
+            )}
           </Button>
         </div>
       </form>

@@ -63,7 +63,6 @@ export default function Movimentacoes() {
   const [searchTerm, setSearchTerm] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Buscar produtos
   const { 
     data: products = [], 
     isLoading: productsLoading, 
@@ -73,7 +72,6 @@ export default function Movimentacoes() {
     queryKey: ['/api/products'],
   });
 
-  // Buscar movimentações
   const { 
     data: movements = [], 
     isLoading: movementsLoading, 
@@ -102,7 +100,6 @@ export default function Movimentacoes() {
     try {
       setSubmitting(true);
 
-      // Validações
       const product = products.find(p => p.id === data.productId);
       if (!product) {
         toast.error('Produto não encontrado');
@@ -119,7 +116,6 @@ export default function Movimentacoes() {
         return;
       }
 
-      // 1. Criar a movimentação
       const movementResponse = await fetch('/api/movements', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -133,7 +129,6 @@ export default function Movimentacoes() {
 
       if (!movementResponse.ok) throw new Error('Erro ao registrar movimentação');
 
-      // 2. Atualizar o estoque do produto
       const newQuantity = calculateNewQuantity(product, data);
       
       const updateResponse = await fetch(`/api/products/${data.productId}`, {
@@ -144,15 +139,12 @@ export default function Movimentacoes() {
 
       if (!updateResponse.ok) throw new Error('Erro ao atualizar estoque');
 
-      // Sucesso
       toast.success('Movimentação registrada com sucesso!');
       
-      // Atualizar dados
       await Promise.all([refetchProducts(), refetchMovements()]);
       setIsDialogOpen(false);
       
     } catch (error) {
-      console.error('Erro ao registrar movimentação:', error);
       toast.error('Erro ao registrar movimentação. Tente novamente.');
     } finally {
       setSubmitting(false);
@@ -270,7 +262,6 @@ export default function Movimentacoes() {
 
   return (
     <div className="space-y-6">
-      {/* Cabeçalho */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Movimentações</h1>
@@ -287,7 +278,6 @@ export default function Movimentacoes() {
         </Button>
       </div>
 
-      {/* Cards Informativos */}
       <div className="grid gap-6 md:grid-cols-3">
         <InfoCard
           title="Entradas"
@@ -306,7 +296,6 @@ export default function Movimentacoes() {
         />
       </div>
 
-      {/* Filtros e Busca */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex-1 max-w-md">
           <SearchBar 
@@ -328,7 +317,6 @@ export default function Movimentacoes() {
         </Select>
       </div>
 
-      {/* Tabela de Histórico */}
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -382,7 +370,6 @@ export default function Movimentacoes() {
         </Table>
       </div>
 
-      {/* Dialog para Nova Movimentação */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>

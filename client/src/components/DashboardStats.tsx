@@ -39,34 +39,85 @@ interface DashboardStatsProps {
   lowStock: number;
   totalValue: number;
   movements: number;
+  outOfStock?: number;
+  movementStats?: {
+    entrada: number;
+    saida: number;
+  };
 }
 
-export default function DashboardStats({ totalProducts, lowStock, totalValue, movements }: DashboardStatsProps) {
+export default function DashboardStats({ 
+  totalProducts, 
+  lowStock, 
+  totalValue, 
+  movements, 
+  outOfStock,
+  movementStats 
+}: DashboardStatsProps) {
+  
+  const formatCurrency = (value: number) => {
+    const numericValue = Number(value) || 0;
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(numericValue);
+  };
+
+  const getMovementTrend = () => {
+    if (!movementStats) return undefined;
+    
+    const totalMovements = (movementStats.entrada || 0) + (movementStats.saida || 0);
+    
+    const balance = (movementStats.entrada || 0) - (movementStats.saida || 0);
+    const isPositive = balance >= 0;
+    
+    return {
+      value: isPositive ? `+${balance} saldo` : `${balance} saldo`,
+      isPositive
+    };
+  };
+
+  const getLowStockDescription = () => {
+    if (outOfStock && outOfStock > 0) {
+      return `${outOfStock} sem estoque`;
+    }
+    return "Requer atenção";
+  };
+
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       <StatCard
         title="Total de Produtos"
-        value={totalProducts}
+        value={totalProducts || 0}
         icon={<Package className="h-4 w-4" />}
         description="Itens cadastrados"
       />
+      
       <StatCard
         title="Estoque Baixo"
-        value={lowStock}
+        value={lowStock || 0}
         icon={<AlertTriangle className="h-4 w-4" />}
-        trend={{ value: "Requer atenção", isPositive: false }}
+        trend={{ 
+          value: getLowStockDescription(), 
+          isPositive: false 
+        }}
       />
+      
       <StatCard
         title="Valor Total"
-        value={`R$ ${totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+        value={formatCurrency(totalValue)}
         icon={<Archive className="h-4 w-4" />}
-        description="Em estoque"
+        description="Valor em estoque"
       />
+      
       <StatCard
-        title="Movimentações (Mês)"
-        value={movements}
+        title="Movimentações"
+        value={movements || 0}
         icon={<TrendingUp className="h-4 w-4" />}
-        trend={{ value: "+12% vs mês anterior", isPositive: true }}
+        trend={getMovementTrend()}
+        description={movementStats ? `${movementStats.entrada || 0} entradas` : "Total do período"}
       />
     </div>
   );

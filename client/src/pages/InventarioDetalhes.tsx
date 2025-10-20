@@ -45,15 +45,13 @@ export default function InventarioDetalhes({ id }: InventarioDetalhesProps) {
   const [countedItems, setCountedItems] = useState<Record<string, number>>({});
   const [activeTab, setActiveTab] = useState("contagem");
 
-  // Se o ID estiver vazio ou undefined, mostra erro
   if (!id || id === 'undefined' || id === '') {
     return (
       <div className="text-center py-12">
         <XCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
         <h2 className="text-2xl font-bold mb-2 text-destructive">ID do inventário inválido</h2>
         <p className="text-muted-foreground mb-4">
-          O inventário solicitado não pôde ser carregado.<br/>
-          Verifique se o inventário existe e tente novamente.
+          O inventário solicitado não pôde ser carregado.
         </p>
         <Button onClick={() => setLocation('/inventario')}>
           Voltar para Inventários
@@ -62,7 +60,6 @@ export default function InventarioDetalhes({ id }: InventarioDetalhesProps) {
     );
   }
 
-  // Buscar detalhes do inventário
   const { 
     data: inventory, 
     isLoading: inventoryLoading, 
@@ -73,7 +70,6 @@ export default function InventarioDetalhes({ id }: InventarioDetalhesProps) {
     enabled: !!id && id !== 'undefined'
   });
 
-  // Buscar produtos
   const { 
     data: products = [], 
     isLoading: productsLoading, 
@@ -82,7 +78,6 @@ export default function InventarioDetalhes({ id }: InventarioDetalhesProps) {
     queryKey: ['/api/products'],
   });
 
-  // Buscar contagens do inventário
   const { 
     data: inventoryCounts = [], 
     refetch: refetchCounts, 
@@ -92,7 +87,6 @@ export default function InventarioDetalhes({ id }: InventarioDetalhesProps) {
     enabled: !!id && id !== 'undefined'
   });
 
-  // Mutação para salvar contagem
   const saveCountMutation = useMutation({
     mutationFn: async ({ productId, countedQuantity }: { productId: string; countedQuantity: number }) => {
       const product = products.find(p => p.id === productId);
@@ -114,7 +108,6 @@ export default function InventarioDetalhes({ id }: InventarioDetalhesProps) {
     }
   });
 
-  // Mutação para finalizar inventário
   const finalizeInventoryMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest('PUT', `/api/inventories/${id}/finalize`);
@@ -129,7 +122,6 @@ export default function InventarioDetalhes({ id }: InventarioDetalhesProps) {
     }
   });
 
-  // Mutação para reabrir inventário
   const reopenInventoryMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest('PUT', `/api/inventories/${id}/reopen`);
@@ -144,7 +136,6 @@ export default function InventarioDetalhes({ id }: InventarioDetalhesProps) {
     }
   });
 
-  // Estatísticas COMPLETAS
   const stats = {
     totalItems: products.length,
     countedItems: inventoryCounts.length,
@@ -162,7 +153,6 @@ export default function InventarioDetalhes({ id }: InventarioDetalhesProps) {
     progress: products.length > 0 ? (inventoryCounts.length / products.length) * 100 : 0
   };
 
-  // Produtos filtrados
   const filteredProducts = products
     .filter(product =>
       product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -277,7 +267,6 @@ export default function InventarioDetalhes({ id }: InventarioDetalhesProps) {
 
   return (
     <div className="space-y-6">
-      {/* Cabeçalho */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="outline" size="icon" onClick={() => setLocation('/inventario')}>
@@ -338,7 +327,6 @@ export default function InventarioDetalhes({ id }: InventarioDetalhesProps) {
         </div>
       </div>
 
-      {/* Estatísticas Destaque */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
         <Card>
           <CardHeader className="pb-2">
@@ -378,7 +366,6 @@ export default function InventarioDetalhes({ id }: InventarioDetalhesProps) {
         </Card>
       </div>
 
-      {/* Barra de Progresso */}
       <Card>
         <CardContent className="pt-6">
           <div className="space-y-4">
@@ -388,16 +375,15 @@ export default function InventarioDetalhes({ id }: InventarioDetalhesProps) {
             </div>
             <Progress value={stats.progress} className="h-3" />
             <div className="flex justify-between text-xs text-muted-foreground">
-              <span>🟢 {stats.itemsExact} exatos</span>
-              <span>🟠 {stats.itemsOver} acima</span>
-              <span>🔴 {stats.itemsUnder} abaixo</span>
-              <span>⚪ {stats.pendingItems} pendentes</span>
+              <span>{stats.itemsExact} exatos</span>
+              <span>{stats.itemsOver} acima</span>
+              <span>{stats.itemsUnder} abaixo</span>
+              <span>{stats.pendingItems} pendentes</span>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Abas Principais */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="contagem">
@@ -414,7 +400,6 @@ export default function InventarioDetalhes({ id }: InventarioDetalhesProps) {
           </TabsTrigger>
         </TabsList>
 
-        {/* ABA: CONTAGEM */}
         <TabsContent value="contagem" className="space-y-4">
           <Card>
             <CardHeader>
@@ -427,7 +412,6 @@ export default function InventarioDetalhes({ id }: InventarioDetalhesProps) {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {/* Filtros */}
               <div className="flex flex-col sm:flex-row gap-4 mb-6">
                 <div className="flex-1 max-w-md">
                   <div className="relative">
@@ -455,7 +439,6 @@ export default function InventarioDetalhes({ id }: InventarioDetalhesProps) {
                 </Select>
               </div>
 
-              {/* Ações Rápidas */}
               {inventory.status === 'em_andamento' && Object.keys(countedItems).filter(k => countedItems[k] > 0).length > 0 && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                   <div className="flex items-center justify-between">
@@ -473,7 +456,6 @@ export default function InventarioDetalhes({ id }: InventarioDetalhesProps) {
                 </div>
               )}
 
-              {/* Tabela de Itens */}
               <div className="rounded-md border">
                 <Table>
                   <TableHeader>
@@ -595,7 +577,6 @@ export default function InventarioDetalhes({ id }: InventarioDetalhesProps) {
           </Card>
         </TabsContent>
 
-        {/* ABA: DIFERENÇAS */}
         <TabsContent value="diferencas">
           <Card>
             <CardHeader>
@@ -652,7 +633,6 @@ export default function InventarioDetalhes({ id }: InventarioDetalhesProps) {
           </Card>
         </TabsContent>
 
-        {/* ABA: RELATÓRIO */}
         <TabsContent value="relatorio">
           <Card>
             <CardHeader>

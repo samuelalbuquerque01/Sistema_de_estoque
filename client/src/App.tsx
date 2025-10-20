@@ -26,13 +26,13 @@ import HistoricoImportacoes from "@/pages/HistoricoImportacoes";
 import Login from "@/pages/Login";
 import NotFound from "@/pages/not-found";
 
-// 🔥 NOVAS PÁGINAS DE CADASTRO
+// Novas páginas de cadastro
 import PaginaEscolhaCadastro from "@/pages/PaginaEscolhaCadastro";
 import CadastroEmpresa from "@/pages/CadastroEmpresa";
 import CadastroUsuario from "@/pages/CadastroUsuario";
 import VerificarEmail from "@/pages/VerificarEmail";
 
-// 🔥 NOVA PÁGINA: Gerenciamento de Usuários
+// Nova página: Gerenciamento de Usuários
 import GerenciarUsuarios from "@/pages/GerenciarUsuarios";
 
 function AuthenticatedLayout() {
@@ -63,7 +63,6 @@ function AuthenticatedLayout() {
               <Route path="/importacao" component={Importacao} />
               <Route path="/movimentacoes" component={Movimentacoes} />
               <Route path="/historico-importacoes" component={HistoricoImportacoes} />
-              {/* 🔥 NOVA ROTA: Gerenciamento de Usuários */}
               <Route path="/usuarios" component={GerenciarUsuarios} />
               <Route component={NotFound} />
             </Switch>
@@ -74,7 +73,6 @@ function AuthenticatedLayout() {
   );
 }
 
-// Componente para proteger rotas autenticadas
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
 
@@ -100,7 +98,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function Router() {
   return (
     <Switch>
-      {/* 🔥 ROTAS PÚBLICAS (acessíveis sem login) */}
+      {/* Rotas públicas (acessíveis sem login) */}
       <Route path="/login" component={Login} />
       <Route path="/cadastro" component={PaginaEscolhaCadastro} />
       <Route path="/cadastro/empresa" component={CadastroEmpresa} />
@@ -129,7 +127,7 @@ function Router() {
         )}
       </Route>
 
-      {/* 🔥 TODAS AS OUTRAS ROTAS PROTEGIDAS */}
+      {/* Todas as outras rotas protegidas */}
       <Route path="/">
         <ProtectedRoute>
           <AuthenticatedLayout />
@@ -190,7 +188,6 @@ function Router() {
           <AuthenticatedLayout />
         </ProtectedRoute>
       </Route>
-      {/* 🔥 NOVA ROTA PROTEGIDA: Gerenciamento de Usuários */}
       <Route path="/usuarios">
         <ProtectedRoute>
           <AuthenticatedLayout />

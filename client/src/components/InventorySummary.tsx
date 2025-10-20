@@ -1,5 +1,5 @@
 // components/InventorySummary.tsx
-import { Package, MapPin, TrendingUp } from "lucide-react";
+import { Package, MapPin } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -28,9 +28,11 @@ export default function InventorySummary({ categories, locations }: InventorySum
     }).format(value);
   };
 
+  const totalCategoryValue = categories.reduce((sum, c) => sum + c.value, 0);
+  const totalLocationProducts = locations.reduce((sum, l) => sum + l.productCount, 0);
+
   return (
     <div className="space-y-6">
-      {/* Categorias */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
@@ -63,7 +65,7 @@ export default function InventorySummary({ categories, locations }: InventorySum
                   {formatCurrency(category.value)}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {((category.value / categories.reduce((sum, c) => sum + c.value, 0)) * 100).toFixed(1)}%
+                  {totalCategoryValue > 0 ? ((category.value / totalCategoryValue) * 100).toFixed(1) : 0}%
                 </p>
               </div>
             </div>
@@ -78,7 +80,6 @@ export default function InventorySummary({ categories, locations }: InventorySum
         </CardContent>
       </Card>
 
-      {/* Localizações */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
@@ -109,7 +110,7 @@ export default function InventorySummary({ categories, locations }: InventorySum
                   {formatCurrency(location.totalValue)}
                 </p>
                 <Badge variant="secondary" className="text-xs">
-                  {((location.productCount / locations.reduce((sum, l) => sum + l.productCount, 0)) * 100).toFixed(0)}%
+                  {totalLocationProducts > 0 ? ((location.productCount / totalLocationProducts) * 100).toFixed(0) : 0}%
                 </Badge>
               </div>
             </div>

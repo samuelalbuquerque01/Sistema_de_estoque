@@ -51,7 +51,6 @@ export default function PaginaEscolhaCadastro() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="w-full max-w-4xl">
-        {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
             Comece sua jornada no StockMaster
@@ -61,7 +60,6 @@ export default function PaginaEscolhaCadastro() {
           </p>
         </div>
 
-        {/* Cards de Opções */}
         <div className="grid md:grid-cols-2 gap-8 mb-8">
           {options.map((option) => (
             <Card 
@@ -118,7 +116,6 @@ export default function PaginaEscolhaCadastro() {
           ))}
         </div>
 
-        {/* Botão Continuar */}
         <div className="text-center">
           <Button 
             size="lg" 
@@ -142,7 +139,6 @@ export default function PaginaEscolhaCadastro() {
           </p>
         </div>
 
-        {/* Informações Adicionais */}
         <div className="mt-12 grid md:grid-cols-3 gap-6 text-center">
           <div className="p-4">
             <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">

@@ -1,4 +1,4 @@
-// Dashboard.tsx - VERSÃO LIMPA SEM ELEMENTOS DESNECESSÁRIOS
+// Dashboard.tsx - VERSÃO CORRIGIDA
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import DashboardStats from "@/components/DashboardStats";
@@ -36,7 +36,7 @@ export default function Dashboard() {
       setDashboardData(data);
 
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Erro desconhecido');
+      setError(error instanceof Error ? error.message : 'Erro ao carregar dados');
     } finally {
       setLoading(false);
     }
@@ -170,6 +170,14 @@ export default function Dashboard() {
     );
   }
 
+  // 🔥 CORREÇÃO: Garantir que o valor do estoque seja formatado corretamente
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value || 0);
+  };
+
   const criticalAlerts = dashboardData.criticalProducts?.map((alert: any) => ({
     product: alert.product,
     urgency: alert.urgency,
@@ -197,7 +205,7 @@ export default function Dashboard() {
         </Button>
       </div>
 
-      {/* Estatísticas Principais */}
+      {/* Estatísticas Principais - COM VALOR CORRIGIDO */}
       <DashboardStats 
         totalProducts={dashboardData.totalProducts}
         lowStock={dashboardData.lowStock}

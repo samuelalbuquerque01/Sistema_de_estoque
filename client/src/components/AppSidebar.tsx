@@ -13,9 +13,7 @@ import {
   ClipboardList,
   BarChart3,
   LogOut,
-  User,
-  TrendingUp,
-  Users // 🔥 NOVO ICONE
+  Users
 } from "lucide-react";
 import {
   Sidebar,
@@ -47,7 +45,7 @@ const cadastrosItems = [
 ];
 
 const operacionalItems = [
-  { title: "Movimentações", icon: TrendingUp, path: "/movimentacoes" },
+  { title: "Movimentações", icon: Upload, path: "/movimentacoes" },
   { title: "Importação", icon: Upload, path: "/importacao" },
   { title: "Histórico de Importações", icon: History, path: "/historico-importacoes" },
   { title: "Inventário", icon: ClipboardList, path: "/inventario" },
@@ -57,7 +55,6 @@ const relatoriosItems = [
   { title: "Relatórios", icon: BarChart3, path: "/relatorios" },
 ];
 
-// 🔥 NOVO GRUPO: Administração (apenas para admins)
 const administracaoItems = [
   { title: "Usuários", icon: Users, path: "/usuarios" },
 ];
@@ -66,7 +63,6 @@ export default function AppSidebar() {
   const [location] = useLocation();
   const { user, logout } = useAuth();
 
-  // 🔥 Verificar se usuário pode gerenciar usuários
   const canManageUsers = user?.role === 'super_admin' || user?.role === 'admin';
 
   const handleLogout = () => {
@@ -95,14 +91,26 @@ export default function AppSidebar() {
 
   return (
     <Sidebar>
-      <SidebarHeader className="border-b border-sidebar-border p-6">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-md bg-primary flex items-center justify-center">
-            <Package className="h-5 w-5 text-primary-foreground" />
+      <SidebarHeader className="border-b border-sidebar-border p-4">
+        <div className="flex flex-col items-center text-center space-y-2">
+          <div className="flex-shrink-0 mb-2">
+            <img 
+              src="https://www.neuropsicocentro.com.br/img/logo.png" 
+              alt="Neuropsicocentro Logo"
+              className="h-12 w-12 object-contain mx-auto"
+              onError={(e) => {
+                // Fallback se a imagem não carregar
+                e.currentTarget.style.display = 'none';
+              }}
+            />
           </div>
-          <div>
-            <h1 className="text-lg font-bold">StockMaster</h1>
-            <p className="text-xs text-sidebar-foreground/60">Controle de Estoque</p>
+          <div className="w-full">
+            <h1 className="text-base font-bold text-gray-900 leading-tight break-words">
+              Neuropsicocentro
+            </h1>
+            <p className="text-xs text-sidebar-foreground/60 mt-1">
+              Gestão de Estoque
+            </p>
           </div>
         </div>
       </SidebarHeader>
@@ -179,7 +187,6 @@ export default function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* 🔥 NOVO GRUPO: ADMINISTRAÇÃO (apenas para admins) */}
         {canManageUsers && (
           <SidebarGroup>
             <SidebarGroupLabel>ADMINISTRAÇÃO</SidebarGroupLabel>
@@ -213,7 +220,7 @@ export default function AppSidebar() {
               {user ? user.name : 'Administrador'}
             </p>
             <p className="text-xs text-sidebar-foreground/60 truncate">
-              {user ? user.email : 'admin@stockmaster.com'}
+              {user ? user.email : 'admin@neuropsicocentro.com'}
             </p>
             {user && (
               <p className="text-xs text-sidebar-foreground/40 truncate">

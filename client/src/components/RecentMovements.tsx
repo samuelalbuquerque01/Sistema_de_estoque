@@ -1,4 +1,4 @@
-// components/RecentMovements.tsx - VERSÃO CORRIGIDA COM CORES IDÊNTICAS
+// components/RecentMovements.tsx
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, ArrowDown, ArrowUp, Minus } from "lucide-react";
@@ -33,7 +33,6 @@ export default function RecentMovements({ movements, onViewAll }: RecentMovement
     }
   };
 
-  // 🔥 CORREÇÃO: Cores EXATAMENTE iguais ao componente Movimentacoes
   const getMovementBadge = (type: string) => {
     switch (type) {
       case 'entrada':

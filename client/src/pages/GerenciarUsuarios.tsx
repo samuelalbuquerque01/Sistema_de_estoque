@@ -1,4 +1,4 @@
-// src/pages/GerenciarUsuarios.tsx
+// src/pages/GerenciarUsuarios.tsx - VERSÃO LIMPA
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/components/AuthContext";
@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit, Trash2, User, Shield, UserCheck } from "lucide-react";
+import { Plus, Trash2, User, Shield, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 
 interface Usuario {
@@ -36,7 +36,7 @@ export default function GerenciarUsuarios() {
     password: ''
   });
 
-  // 🔥 Verificar permissões
+  // Verificar permissões
   const canManageUsers = user?.role === 'super_admin' || user?.role === 'admin';
 
   useEffect(() => {
@@ -243,6 +243,7 @@ export default function GerenciarUsuarios() {
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     placeholder="Senha temporária"
                     required
+                    minLength={6}
                   />
                 </div>
               </div>
@@ -310,7 +311,7 @@ export default function GerenciarUsuarios() {
                           <Select
                             value={usuario.role}
                             onValueChange={(newRole) => atualizarRole(usuario.id, newRole)}
-                            disabled={usuario.id === user?.id} // Não pode mudar a própria role
+                            disabled={usuario.id === user?.id}
                           >
                             <SelectTrigger className="w-32">
                               <SelectValue />

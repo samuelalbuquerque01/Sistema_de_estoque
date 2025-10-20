@@ -1,4 +1,4 @@
-// client/src/pages/VerificarEmail.tsx - CRIAR ESTE ARQUIVO
+// client/src/pages/VerificarEmail.tsx
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { CheckCircle, XCircle, Loader, ArrowLeft } from "lucide-react";
@@ -12,7 +12,6 @@ export default function VerificarEmail() {
 
   useEffect(() => {
     const verificarEmail = async () => {
-      // Extrair token da URL
       const urlParams = new URLSearchParams(window.location.search);
       const token = urlParams.get('token');
 
@@ -23,8 +22,6 @@ export default function VerificarEmail() {
       }
 
       try {
-        console.log('🔐 Verificando token:', token);
-        
         const response = await fetch('/api/auth/verificar-email', {
           method: 'POST',
           headers: {
@@ -43,7 +40,6 @@ export default function VerificarEmail() {
           setMessage(data.error || 'Erro ao verificar email');
         }
       } catch (error) {
-        console.error('❌ Erro na verificação:', error);
         setStatus('error');
         setMessage('Erro de conexão. Tente novamente.');
       }
@@ -70,12 +66,10 @@ export default function VerificarEmail() {
             </CardDescription>
           </CardHeader>
           <CardContent className="text-center space-y-6">
-            {/* Mensagem */}
             <p className="text-lg text-gray-700">
               {message}
             </p>
 
-            {/* Ações */}
             <div className="space-y-3">
               {status === 'success' && (
                 <Button 
@@ -106,7 +100,6 @@ export default function VerificarEmail() {
               )}
             </div>
 
-            {/* Informações Adicionais */}
             {status === 'error' && (
               <div className="text-sm text-gray-500 border-t pt-4">
                 <p className="font-medium mb-2">Se o problema persistir:</p>

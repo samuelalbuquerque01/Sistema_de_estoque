@@ -1,23 +1,18 @@
-// server/utils/reportService.ts - VERSÃO COMPLETAMENTE CORRIGIDA
+// server/utils/reportService.ts
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 import { Product, Movement, Inventory, Category, Location } from '@shared/schema';
 
 export class ReportService {
-  // 🔥 GERAR EXCEL PROFISSIONAL - COMPLETO
   static async generateExcelReport(data: any, reportType: string): Promise<Buffer> {
-    console.log(`📊 Iniciando geração do Excel para: ${reportType}`);
-    
     try {
       const workbook = new ExcelJS.Workbook();
       
-      // Configurações do workbook
       workbook.creator = 'StockMaster';
       workbook.lastModifiedBy = 'StockMaster';
       workbook.created = new Date();
       workbook.modified = new Date();
 
-      // 🎨 ESTILOS PROFISSIONAIS
       const headerStyle = {
         font: { bold: true, color: { argb: 'FFFFFF' }, size: 12 },
         fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: '2E86AB' } },
@@ -35,25 +30,21 @@ export class ReportService {
         alignment: { vertical: 'middle', horizontal: 'center' }
       };
 
-      // 📊 PLANILHA PRINCIPAL
       const worksheet = workbook.addWorksheet(this.getSheetName(reportType));
       
-      // TÍTULO
       worksheet.mergeCells('A1:J1');
       const titleCell = worksheet.getCell('A1');
       titleCell.value = `RELATÓRIO: ${reportType.toUpperCase()}`;
       Object.assign(titleCell, titleStyle);
 
-      // DATA DE GERAÇÃO
       worksheet.mergeCells('A2:J2');
       const dateCell = worksheet.getCell('A2');
       dateCell.value = `Gerado em: ${new Date().toLocaleString('pt-BR')}`;
       dateCell.font = { italic: true, color: { argb: '666666' } };
       dateCell.alignment = { horizontal: 'center' };
 
-      worksheet.addRow([]); // Linha em branco
+      worksheet.addRow([]);
 
-      // 🔥 PROCESSAR DADOS BASEADO NO TIPO DE RELATÓRIO
       let startRow = 4;
       
       switch (reportType) {
@@ -79,7 +70,6 @@ export class ReportService {
           startRow = this.addGenericDataToExcel(worksheet, data, headerStyle, startRow);
       }
 
-      // AJUSTAR LARGURA DAS COLUNAS
       worksheet.columns.forEach(column => {
         if (column.values) {
           const maxLength = Math.max(
@@ -89,23 +79,17 @@ export class ReportService {
         }
       });
 
-      // CONGELAR CABEÇALHOS
       worksheet.views = [
         { state: 'frozen', ySplit: startRow - 1, xSplit: 0 }
       ];
 
       const buffer = await workbook.xlsx.writeBuffer();
-      console.log(`📊 Excel gerado com sucesso, tamanho: ${buffer.length} bytes`);
       return buffer;
 
     } catch (error) {
-      console.error('❌ Erro ao gerar Excel:', error);
-      // Fallback: criar um Excel básico com os dados
       return this.generateFallbackExcel(data, reportType);
     }
   }
-
-  // 🔥 MÉTODOS PARA EXCEL - IMPLEMENTADOS COMPLETAMENTE
 
   private static addProductsToExcel(worksheet: any, data: any, headerStyle: any, startRow: number): number {
     if (!data.produtos || !Array.isArray(data.produtos) || data.produtos.length === 0) {
@@ -113,12 +97,10 @@ export class ReportService {
       return startRow + 2;
     }
 
-    // CABEÇALHO DA TABELA
     const headers = ['Código', 'Nome', 'Tipo', 'Categoria', 'Localização', 'Quantidade', 'Estoque Mínimo', 'Preço Unitário', 'Valor Total', 'Status'];
     const headerRow = worksheet.addRow(headers);
     headerRow.eachCell((cell: any) => Object.assign(cell, headerStyle));
 
-    // DADOS
     data.produtos.forEach((product: any) => {
       const row = worksheet.addRow([
         product.codigo || 'N/A',
@@ -133,7 +115,6 @@ export class ReportService {
         product.status || 'N/A'
       ]);
 
-      // COLORIR LINHAS COM ESTOQUE BAIXO
       if (product.status === 'SEM ESTOQUE') {
         row.eachCell((cell: any) => {
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6E6' } };
@@ -145,7 +126,6 @@ export class ReportService {
       }
     });
 
-    // RESUMO
     const summaryRow = startRow + data.produtos.length + 2;
     if (data.resumo) {
       worksheet.getCell(`A${summaryRow}`).value = 'RESUMO';
@@ -185,18 +165,18 @@ export class ReportService {
         product.acao_recomendada || 'N/A'
       ]);
 
-      // COLORIR POR URGÊNCIA
-      row.eachCell((cell: any) => {
-        if (product.urgencia === 'CRÍTICO') {
+      if (product.urgencia === 'CRÍTICO') {
+        row.eachCell((cell: any) => {
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6E6' } };
           cell.font = { bold: true, color: { argb: 'CC0000' } };
-        } else {
+        });
+      } else {
+        row.eachCell((cell: any) => {
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF4E6' } };
-        }
-      });
+        });
+      }
     });
 
-    // RESUMO
     const summaryRow = startRow + data.produtos.length + 2;
     if (data.resumo) {
       worksheet.getCell(`A${summaryRow}`).value = 'RESUMO';
@@ -212,7 +192,6 @@ export class ReportService {
   }
 
   private static addFinancialToExcel(worksheet: any, data: any, headerStyle: any, startRow: number): number {
-    // RESUMO FINANCEIRO
     if (data.resumo) {
       worksheet.getCell(`A${startRow}`).value = 'RESUMO FINANCEIRO';
       worksheet.getCell(`A${startRow}`).font = { bold: true, size: 14 };
@@ -225,7 +204,6 @@ export class ReportService {
       startRow += 5;
     }
 
-    // VALOR POR CATEGORIA
     if (data.valor_por_categoria && Array.isArray(data.valor_por_categoria)) {
       worksheet.getCell(`A${startRow}`).value = 'VALOR POR CATEGORIA';
       worksheet.getCell(`A${startRow}`).font = { bold: true, size: 12 };
@@ -246,7 +224,6 @@ export class ReportService {
       startRow += data.valor_por_categoria.length + 3;
     }
 
-    // TOP PRODUTOS
     if (data.top_produtos && Array.isArray(data.top_produtos)) {
       worksheet.getCell(`A${startRow}`).value = 'TOP 10 PRODUTOS MAIS VALIOSOS';
       worksheet.getCell(`A${startRow}`).font = { bold: true, size: 12 };
@@ -277,7 +254,6 @@ export class ReportService {
       return startRow + 2;
     }
 
-    // RESUMO
     if (data.resumo) {
       worksheet.getCell(`A${startRow}`).value = 'RESUMO DE MOVIMENTAÇÕES';
       worksheet.getCell(`A${startRow}`).font = { bold: true, size: 12 };
@@ -294,7 +270,6 @@ export class ReportService {
       startRow += 9;
     }
 
-    // MOVIMENTAÇÕES
     worksheet.getCell(`A${startRow}`).value = 'DETALHES DAS MOVIMENTAÇÕES';
     worksheet.getCell(`A${startRow}`).font = { bold: true, size: 12 };
     startRow++;
@@ -314,7 +289,6 @@ export class ReportService {
         mov.observacoes
       ]);
 
-      // COLORIR POR TIPO
       if (mov.tipo === 'ENTRADA') {
         row.eachCell((cell: any) => {
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'E8F5E8' } };
@@ -335,7 +309,6 @@ export class ReportService {
       return startRow + 2;
     }
 
-    // RESUMO
     if (data.resumo) {
       worksheet.getCell(`A${startRow}`).value = 'RESUMO DE INVENTÁRIOS';
       worksheet.getCell(`A${startRow}`).font = { bold: true, size: 12 };
@@ -348,7 +321,6 @@ export class ReportService {
       startRow += 5;
     }
 
-    // INVENTÁRIOS
     worksheet.getCell(`A${startRow}`).value = 'DETALHES DOS INVENTÁRIOS';
     worksheet.getCell(`A${startRow}`).font = { bold: true, size: 12 };
     startRow++;
@@ -368,7 +340,6 @@ export class ReportService {
         inv.precisao
       ]);
 
-      // COLORIR POR STATUS
       if (inv.status === 'FINALIZADO') {
         row.eachCell((cell: any) => {
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'E8F5E8' } };
@@ -385,7 +356,6 @@ export class ReportService {
       return startRow + 2;
     }
 
-    // RESUMO GERAL
     if (data.resumo_geral) {
       worksheet.getCell(`A${startRow}`).value = 'RESUMO GERAL';
       worksheet.getCell(`A${startRow}`).font = { bold: true, size: 12 };
@@ -399,7 +369,6 @@ export class ReportService {
       startRow += 6;
     }
 
-    // PRODUTOS POR LOCAL
     data.produtos_por_local.forEach((local: any) => {
       worksheet.getCell(`A${startRow}`).value = `LOCAL: ${local.local}`;
       worksheet.getCell(`A${startRow}`).font = { bold: true, size: 11 };
@@ -414,7 +383,6 @@ export class ReportService {
         startRow += 6;
       }
 
-      // PRODUTOS DO LOCAL
       if (local.produtos && Array.isArray(local.produtos) && local.produtos.length > 0) {
         const headers = ['Código', 'Nome', 'Categoria', 'Quantidade', 'Preço Unitário', 'Valor Total', 'Status'];
         const headerRow = worksheet.addRow(headers);
@@ -431,7 +399,6 @@ export class ReportService {
             produto.status
           ]);
 
-          // COLORIR POR STATUS
           if (produto.status === 'ESTOQUE BAIXO') {
             row.eachCell((cell: any) => {
               cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF4E6' } };
@@ -441,17 +408,14 @@ export class ReportService {
         startRow += local.produtos.length + 2;
       }
 
-      worksheet.addRow([]); // Linha em branco entre locais
+      worksheet.addRow([]);
       startRow++;
     });
 
     return startRow;
   }
 
-  // 🔥 GERAR PDF PROFISSIONAL - COMPLETAMENTE IMPLEMENTADO
   static async generatePDFReport(data: any, reportType: string): Promise<Buffer> {
-    console.log(`📊 Iniciando geração do PDF para: ${reportType}`);
-    
     return new Promise((resolve, reject) => {
       try {
         const doc = new PDFDocument({ margin: 50, size: 'A4', layout: 'portrait' });
@@ -461,7 +425,6 @@ export class ReportService {
         doc.on('end', () => resolve(Buffer.concat(buffers)));
         doc.on('error', reject);
 
-        // 🎨 CABEÇALHO PROFISSIONAL
         doc.fillColor('#2E86AB')
            .fontSize(20)
            .font('Helvetica-Bold')
@@ -475,7 +438,6 @@ export class ReportService {
            .fontSize(10)
            .text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 50, 110, { align: 'center' });
 
-        // LINHA SEPARADORA
         doc.moveTo(50, 130)
            .lineTo(545, 130)
            .strokeColor('#2E86AB')
@@ -484,7 +446,6 @@ export class ReportService {
 
         let yPosition = 160;
 
-        // 🔥 PROCESSAR DADOS BASEADO NO TIPO - COMPLETO
         switch (reportType) {
           case 'Produtos':
             yPosition = this.addProductsToPDF(doc, data, yPosition);
@@ -508,7 +469,6 @@ export class ReportService {
             yPosition = this.addGenericToPDF(doc, data, yPosition);
         }
 
-        // RODAPÉ EM TODAS AS PÁGINAS
         const addFooter = (pageNumber: number) => {
           const pageHeight = doc.page.height;
           doc.fillColor('#666666')
@@ -517,25 +477,19 @@ export class ReportService {
              .text('Sistema StockMaster - Controle de Estoque', 50, pageHeight - 20, { align: 'center' });
         };
 
-        // Adicionar footer à primeira página
         addFooter(1);
 
-        // Configurar footer para páginas subsequentes
         doc.on('pageAdded', () => {
           addFooter(doc.page.number);
         });
 
         doc.end();
-        console.log(`📊 PDF gerado com sucesso`);
 
       } catch (error) {
-        console.error('❌ Erro ao gerar PDF:', error);
         reject(error);
       }
     });
   }
-
-  // 🔥 MÉTODOS PARA PDF - COMPLETAMENTE IMPLEMENTADOS
 
   private static addProductsToPDF(doc: any, data: any, yPosition: number): number {
     if (!data.produtos || !Array.isArray(data.produtos) || data.produtos.length === 0) {
@@ -543,7 +497,6 @@ export class ReportService {
       return yPosition + 30;
     }
 
-    // RESUMO
     doc.font('Helvetica-Bold').fontSize(14).text('RESUMO', 50, yPosition);
     yPosition += 20;
 
@@ -561,20 +514,16 @@ export class ReportService {
       yPosition += 25;
     }
 
-    // LISTA DE PRODUTOS
     doc.font('Helvetica-Bold').fontSize(12).text('LISTA DE PRODUTOS', 50, yPosition);
     yPosition += 20;
 
-    // CABEÇALHO DA TABELA
     const startX = 50;
     const colWidths = [50, 120, 80, 60, 40, 50, 50];
     
-    // Fundo do cabeçalho
     doc.fillColor('#2E86AB')
        .rect(startX, yPosition, 495, 20)
        .fill();
     
-    // Texto do cabeçalho
     doc.fillColor('#FFFFFF')
        .fontSize(9)
        .font('Helvetica-Bold')
@@ -588,13 +537,10 @@ export class ReportService {
 
     yPosition += 25;
 
-    // DADOS
     data.produtos.forEach((product: any, index: number) => {
-      // Verificar se precisa de nova página
       if (yPosition > 700) {
         doc.addPage();
         yPosition = 50;
-        // Adicionar cabeçalho novamente
         doc.fillColor('#2E86AB').rect(startX, yPosition, 495, 20).fill();
         doc.fillColor('#FFFFFF').fontSize(9).font('Helvetica-Bold')
            .text('Código', startX + 5, yPosition + 7)
@@ -607,14 +553,12 @@ export class ReportService {
         yPosition += 25;
       }
 
-      // COR DE FUNDO ALTERNADA
       if (index % 2 === 0) {
         doc.fillColor('#F8F9FA')
            .rect(startX, yPosition, 495, 15)
            .fill();
       }
 
-      // COR POR STATUS
       let textColor = '#333333';
       if (product.status === 'SEM ESTOQUE') {
         doc.fillColor('#FFE6E6').rect(startX, yPosition, 495, 15).fill();
@@ -646,7 +590,6 @@ export class ReportService {
       return yPosition + 30;
     }
 
-    // RESUMO
     doc.font('Helvetica-Bold').fontSize(14).text('RESUMO - ESTOQUE BAIXO', 50, yPosition);
     yPosition += 20;
 
@@ -661,11 +604,9 @@ export class ReportService {
       yPosition += 25;
     }
 
-    // LISTA DE PRODUTOS
     doc.font('Helvetica-Bold').fontSize(12).text('PRODUTOS COM ESTOQUE BAIXO', 50, yPosition);
     yPosition += 20;
 
-    // CABEÇALHO DA TABELA
     const startX = 50;
     const colWidths = [50, 120, 80, 40, 40, 40, 60, 50, 50];
     
@@ -687,15 +628,12 @@ export class ReportService {
 
     yPosition += 25;
 
-    // DADOS
     data.produtos.forEach((product: any, index: number) => {
       if (yPosition > 700) {
         doc.addPage();
         yPosition = 50;
-        // Recriar cabeçalho...
       }
 
-      // COR POR URGÊNCIA
       if (product.urgencia === 'CRÍTICO') {
         doc.fillColor('#FFE6E6').rect(startX, yPosition, 495, 15).fill();
       } else {
@@ -722,7 +660,6 @@ export class ReportService {
   }
 
   private static addFinancialToPDF(doc: any, data: any, yPosition: number): number {
-    // RESUMO FINANCEIRO
     doc.font('Helvetica-Bold').fontSize(14).text('RESUMO FINANCEIRO', 50, yPosition);
     yPosition += 20;
 
@@ -739,7 +676,6 @@ export class ReportService {
       yPosition += 25;
     }
 
-    // VALOR POR CATEGORIA
     if (data.valor_por_categoria && Array.isArray(data.valor_por_categoria)) {
       doc.font('Helvetica-Bold').fontSize(12).text('VALOR POR CATEGORIA', 50, yPosition);
       yPosition += 20;
@@ -754,7 +690,6 @@ export class ReportService {
       yPosition += 10;
     }
 
-    // TOP PRODUTOS
     if (data.top_produtos && Array.isArray(data.top_produtos)) {
       doc.font('Helvetica-Bold').fontSize(12).text('TOP 10 PRODUTOS MAIS VALIOSOS', 50, yPosition);
       yPosition += 20;
@@ -776,7 +711,6 @@ export class ReportService {
       return yPosition + 30;
     }
 
-    // RESUMO
     doc.font('Helvetica-Bold').fontSize(14).text('RESUMO DE MOVIMENTAÇÕES', 50, yPosition);
     yPosition += 20;
 
@@ -797,7 +731,6 @@ export class ReportService {
       yPosition += 25;
     }
 
-    // MOVIMENTAÇÕES
     doc.font('Helvetica-Bold').fontSize(12).text('DETALHES DAS MOVIMENTAÇÕES', 50, yPosition);
     yPosition += 20;
 
@@ -848,7 +781,6 @@ export class ReportService {
       return yPosition + 30;
     }
 
-    // RESUMO
     doc.font('Helvetica-Bold').fontSize(14).text('RESUMO DE INVENTÁRIOS', 50, yPosition);
     yPosition += 20;
 
@@ -863,7 +795,6 @@ export class ReportService {
       yPosition += 25;
     }
 
-    // INVENTÁRIOS
     doc.font('Helvetica-Bold').fontSize(12).text('DETALHES DOS INVENTÁRIOS', 50, yPosition);
     yPosition += 20;
 
@@ -901,7 +832,6 @@ export class ReportService {
       return yPosition + 30;
     }
 
-    // RESUMO GERAL
     doc.font('Helvetica-Bold').fontSize(14).text('RESUMO GERAL', 50, yPosition);
     yPosition += 20;
 
@@ -917,7 +847,6 @@ export class ReportService {
       yPosition += 25;
     }
 
-    // PRODUTOS POR LOCAL
     data.produtos_por_local.forEach((local: any) => {
       if (yPosition > 650) {
         doc.addPage();
@@ -938,7 +867,6 @@ export class ReportService {
         yPosition += 20;
       }
 
-      // PRODUTOS DO LOCAL (apenas resumo se houver muitos)
       if (local.produtos && Array.isArray(local.produtos)) {
         if (local.produtos.length <= 10) {
           local.produtos.forEach((produto: any) => {
@@ -960,16 +888,13 @@ export class ReportService {
         }
       }
 
-      yPosition += 15; // Espaço entre locais
+      yPosition += 15;
     });
 
     return yPosition + 20;
   }
 
-  // 🔥 MÉTODOS AUXILIARES
-
   private static addGenericDataToExcel(worksheet: any, data: any, headerStyle: any, startRow: number): number {
-    // Fallback genérico para Excel
     if (typeof data === 'object') {
       const headers = Object.keys(data);
       const headerRow = worksheet.addRow(headers);
@@ -986,7 +911,6 @@ export class ReportService {
   }
 
   private static addGenericToPDF(doc: any, data: any, yPosition: number): number {
-    // Fallback genérico para PDF
     doc.font('Helvetica').fontSize(12).text('Relatório Genérico', 50, yPosition);
     if (data && typeof data === 'object') {
       Object.entries(data).forEach(([key, value]) => {

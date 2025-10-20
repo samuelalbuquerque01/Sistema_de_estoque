@@ -1,4 +1,4 @@
-// src/pages/HistoricoImportacoes.tsx - VERSÃO CORRIGIDA
+// src/pages/HistoricoImportacoes.tsx - VERSÃO LIMPA
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
@@ -9,7 +9,6 @@ import {
   Trash2,
   Filter,
   Search,
-  Calendar,
   Package,
   CheckCircle,
   XCircle,
@@ -81,67 +80,49 @@ export default function HistoricoImportacoes() {
     enabled: !!selectedImport,
   });
 
-  // 🔥 CORREÇÃO: Mutation para excluir importação
+  // Mutation para excluir importação
   const deleteMutation = useMutation({
     mutationFn: async (importId: string) => {
-      console.log('🗑️ Tentando excluir importação:', importId);
-      
       const response = await fetch(`/api/import/${importId}`, {
         method: 'DELETE',
       });
 
-      console.log('📊 Resposta do DELETE:', response.status, response.statusText);
-
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Erro na resposta:', errorText);
         throw new Error(`Erro ${response.status}: ${response.statusText}`);
       }
 
       return await response.json();
     },
     onSuccess: () => {
-      console.log('✅ Importação excluída com sucesso');
       queryClient.invalidateQueries({ queryKey: ['/api/import/history'] });
       toast.success('Importação excluída com sucesso');
     },
     onError: (error: Error) => {
-      console.error('❌ Erro ao excluir importação:', error);
       toast.error(`Erro ao excluir: ${error.message}`);
     },
   });
 
-  // 🔥 CORREÇÃO: Mutation para download do XML
+  // Mutation para download do XML
   const downloadMutation = useMutation({
     mutationFn: async (importItem: ImportHistoryItem) => {
-      console.log('📥 Tentando baixar XML para:', importItem.id);
-      
       const response = await fetch(`/api/import/${importItem.id}/download`);
       
-      console.log('📊 Resposta do download:', response.status, response.statusText);
-
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Erro no download:', errorText);
         throw new Error(`Erro ${response.status}: ${response.statusText}`);
       }
 
-      // Verificar se a resposta é um XML
       const contentType = response.headers.get('content-type');
-      console.log('📄 Content-Type:', contentType);
 
       if (contentType?.includes('application/xml') || contentType?.includes('text/xml')) {
         const blob = await response.blob();
         return { blob, success: true };
       } else {
-        // Pode ser JSON de erro
         const errorData = await response.json();
         throw new Error(errorData.error || 'Formato de resposta inválido');
       }
     },
     onSuccess: (data, importItem) => {
       if (data.success) {
-        // Criar e disparar o download
         const url = window.URL.createObjectURL(data.blob);
         const a = document.createElement('a');
         a.href = url;
@@ -153,59 +134,10 @@ export default function HistoricoImportacoes() {
         toast.success('XML baixado com sucesso');
       }
     },
-    onError: (error: Error, importItem) => {
-      console.error('❌ Erro ao baixar XML:', error);
+    onError: (error: Error) => {
       toast.error(`Erro ao baixar XML: ${error.message}`);
-      
-      // 🔥 FALLBACK: Tentar método alternativo se o primeiro falhar
-      handleDownloadFallback(importItem);
     },
   });
-
-  // 🔥 CORREÇÃO: Método fallback para download
-  const handleDownloadFallback = async (importItem: ImportHistoryItem) => {
-    try {
-      console.log('🔄 Tentando método fallback para download...');
-      
-      // Tentar método alternativo - buscar dados e gerar XML manualmente
-      const response = await fetch(`/api/import/${importItem.id}/download`, {
-        headers: {
-          'Accept': 'application/xml,text/xml,application/json'
-        }
-      });
-
-      if (response.ok) {
-        const text = await response.text();
-        
-        // Verificar se é XML
-        if (text.trim().startsWith('<?xml') || text.trim().startsWith('<nfe')) {
-          const blob = new Blob([text], { type: 'application/xml' });
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `${importItem.fileName.replace('.xml', '')}_${importItem.nfeData.key}.xml`;
-          document.body.appendChild(a);
-          a.click();
-          window.URL.revokeObjectURL(url);
-          document.body.removeChild(a);
-          toast.success('XML baixado com sucesso (fallback)');
-        } else {
-          // Se não for XML, pode ser JSON de erro
-          try {
-            const errorData = JSON.parse(text);
-            throw new Error(errorData.error || 'Resposta não é XML');
-          } catch {
-            throw new Error('Resposta do servidor não é XML válido');
-          }
-        }
-      } else {
-        throw new Error(`Erro ${response.status}: ${response.statusText}`);
-      }
-    } catch (fallbackError) {
-      console.error('❌ Fallback também falhou:', fallbackError);
-      toast.error(`Falha no download: ${fallbackError.message}`);
-    }
-  };
 
   // Estatísticas
   const stats = {
@@ -244,7 +176,6 @@ export default function HistoricoImportacoes() {
     setIsDetailsOpen(true);
   };
 
-  // 🔥 CORREÇÃO: Função de download usando mutation
   const handleDownloadXml = async (importItem: ImportHistoryItem) => {
     downloadMutation.mutate(importItem);
   };
@@ -261,12 +192,10 @@ export default function HistoricoImportacoes() {
         toast.error('Erro ao reprocessar');
       }
     } catch (error) {
-      console.error('Erro ao reprocessar:', error);
       toast.error('Erro ao reprocessar');
     }
   };
 
-  // 🔥 CORREÇÃO: Função de exclusão usando mutation
   const handleDelete = async (importItem: ImportHistoryItem) => {
     if (confirm(`Tem certeza que deseja excluir permanentemente a importação "${importItem.fileName}"?\n\nEsta ação não pode ser desfeita.`)) {
       deleteMutation.mutate(importItem.id);
@@ -743,7 +672,7 @@ export default function HistoricoImportacoes() {
                 </CardContent>
               </Card>
 
-              {/* 🔥 NOVO: Ações na modal de detalhes */}
+              {/* Ações na modal de detalhes */}
               <Card>
                 <CardHeader>
                   <CardTitle>Ações</CardTitle>

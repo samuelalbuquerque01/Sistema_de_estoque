@@ -95,7 +95,6 @@ export class ReportGenerator {
       return acc;
     }, {} as Record<string, { totalValue: number; productCount: number }>);
 
-    // Top 10 produtos mais valiosos
     const topProducts = products
       .map(product => ({
         nome: product.name,

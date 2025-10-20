@@ -24,12 +24,10 @@ export default function Inventario() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
 
-  // Buscar inventários da API
   const { data: inventories = [], isLoading, refetch, error } = useQuery<Inventory[]>({
     queryKey: ['/api/inventories'],
   });
 
-  // Mutação para criar novo inventário
   const createInventoryMutation = useMutation({
     mutationFn: async (name: string) => {
       const response = await apiRequest('POST', '/api/inventories', {
@@ -48,7 +46,6 @@ export default function Inventario() {
     }
   });
 
-  // Mutação para finalizar inventário
   const finalizeInventoryMutation = useMutation({
     mutationFn: async (inventoryId: string) => {
       const response = await apiRequest('PUT', `/api/inventories/${inventoryId}/finalize`);
@@ -77,12 +74,10 @@ export default function Inventario() {
     createInventoryMutation.mutate(inventoryName.trim());
   };
 
-  // ✅ FUNÇÃO PARA VISUALIZAR INVENTÁRIO
   const handleViewInventory = (inventory: Inventory) => {
     window.location.href = `/inventario/${inventory.id}`;
   };
 
-  // ✅ FUNÇÃO PARA FINALIZAR INVENTÁRIO
   const handleFinalizeInventory = (inventory: Inventory) => {
     if (inventory.status === 'finalizado') {
       alert('Este inventário já está finalizado!');
@@ -94,7 +89,6 @@ export default function Inventario() {
     }
   };
 
-  // Converter dados da API para o formato esperado pelo InventoryList
   const formattedInventories = inventories.map(inv => ({
     id: inv.id,
     name: inv.name,
@@ -102,7 +96,7 @@ export default function Inventario() {
     user: user?.name || 'Administrador',
     createdAt: new Date(inv.createdAt),
     finishedAt: inv.finishedAt ? new Date(inv.finishedAt) : undefined,
-    itemsCount: 0 // Pode ser calculado depois com contagens reais
+    itemsCount: 0
   }));
 
   return (
@@ -134,7 +128,6 @@ export default function Inventario() {
         </div>
       )}
 
-      {/* ✅ INVENTORYLIST COM AS FUNÇÕES CONFIGURADAS */}
       <InventoryList
         inventories={formattedInventories}
         onView={handleViewInventory}

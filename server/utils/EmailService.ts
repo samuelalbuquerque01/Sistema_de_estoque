@@ -5,16 +5,10 @@ export class EmailService {
   private static transporter: nodemailer.Transporter;
 
   static initialize() {
-    console.log('🔧 Inicializando serviço de email...');
-    console.log('📧 Email User:', process.env.EMAIL_USER);
-    console.log('🔑 Email Pass:', process.env.EMAIL_PASS ? '***' : 'NÃO CONFIGURADO');
-    
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.error('❌ Variáveis de email não configuradas no .env');
       return;
     }
 
-    // 🔥 CORREÇÃO: createTransport (sem "er" no final)
     this.transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -23,22 +17,16 @@ export class EmailService {
       },
     });
 
-    // Verificar configuração
     this.transporter.verify((error) => {
       if (error) {
-        console.error('❌ Erro na configuração de email:', error);
-      } else {
-        console.log('✅ Serviço de email configurado com sucesso!');
+        // Erro na configuração de email
       }
     });
   }
 
   static async enviarEmailVerificacao(email: string, nome: string, token: string): Promise<boolean> {
     try {
-      console.log(`📧 Tentando enviar email para: ${email}`);
-      
       if (!this.transporter) {
-        console.error('❌ Transporter não inicializado');
         return false;
       }
 
@@ -47,7 +35,7 @@ export class EmailService {
       const mailOptions = {
         from: process.env.EMAIL_FROM,
         to: email,
-        subject: '✅ Verifique seu email - StockMaster',
+        subject: 'Verifique seu email - StockMaster',
         html: `
           <!DOCTYPE html>
           <html>
@@ -123,7 +111,7 @@ export class EmailService {
                 
                 <div style="text-align: center; margin: 30px 0;">
                   <a href="${verificationUrl}" class="button">
-                    ✅ Verificar Meu Email
+                    Verificar Meu Email
                   </a>
                 </div>
                 
@@ -134,7 +122,7 @@ export class EmailService {
                 
                 <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 15px; margin: 20px 0;">
                   <p style="margin: 0; color: #856404; font-size: 14px;">
-                    ⚠️ <strong>Este link expira em 24 horas.</strong><br>
+                    <strong>Este link expira em 24 horas.</strong><br>
                     Se você não criou esta conta, ignore este email.
                   </p>
                 </div>
@@ -154,19 +142,9 @@ export class EmailService {
         `,
       };
 
-      console.log('📤 Enviando email...');
-      const result = await this.transporter.sendMail(mailOptions);
-      console.log(`✅ Email enviado com sucesso! Message ID: ${result.messageId}`);
-      console.log(`🔗 Link de verificação: ${verificationUrl}`);
-      
+      await this.transporter.sendMail(mailOptions);
       return true;
     } catch (error) {
-      console.error('❌ Erro ao enviar email:', error);
-      
-      // Fallback: log do link para desenvolvimento
-      const verificationUrl = `${process.env.APP_URL}/verificar-email?token=${token}`;
-      console.log(`🔗 Link de verificação (fallback): ${verificationUrl}`);
-      
       return false;
     }
   }
@@ -176,7 +154,7 @@ export class EmailService {
       const mailOptions = {
         from: process.env.EMAIL_FROM,
         to: email,
-        subject: '🎉 Bem-vindo ao StockMaster! Sua conta foi ativada',
+        subject: 'Bem-vindo ao StockMaster! Sua conta foi ativada',
         html: `
           <!DOCTYPE html>
           <html>
@@ -194,7 +172,7 @@ export class EmailService {
           <body>
             <div class="container">
               <div class="header">
-                <h1 style="margin: 0; font-size: 28px;">🎉 Bem-vindo ao StockMaster!</h1>
+                <h1 style="margin: 0; font-size: 28px;">Bem-vindo ao StockMaster!</h1>
                 <p style="margin: 10px 0 0 0; opacity: 0.9;">Sua conta foi ativada com sucesso</p>
               </div>
               <div class="content">
@@ -204,31 +182,31 @@ export class EmailService {
                   Agora você pode acessar todas as funcionalidades do StockMaster.
                 </p>
                 
-                <h3 style="color: #333; margin-top: 30px;">📦 O que você pode fazer agora:</h3>
+                <h3 style="color: #333; margin-top: 30px;">O que você pode fazer agora:</h3>
                 
                 <div class="feature">
-                  <strong>🏠 Dashboard Completo</strong><br>
+                  <strong>Dashboard Completo</strong><br>
                   Acompanhe métricas importantes do seu estoque em tempo real
                 </div>
                 
                 <div class="feature">
-                  <strong>📊 Relatórios Avançados</strong><br>
+                  <strong>Relatórios Avançados</strong><br>
                   Gere relatórios detalhados em PDF e Excel
                 </div>
                 
                 <div class="feature">
-                  <strong>📄 Importação de NFe</strong><br>
+                  <strong>Importação de NFe</strong><br>
                   Importe notas fiscais automaticamente
                 </div>
                 
                 <div class="feature">
-                  <strong>🔔 Alertas Inteligentes</strong><br>
+                  <strong>Alertas Inteligentes</strong><br>
                   Receba alertas de estoque baixo automaticamente
                 </div>
                 
                 <div style="text-align: center; margin: 30px 0;">
                   <a href="${process.env.APP_URL}" class="button">
-                    🚀 Acessar Minha Conta
+                    Acessar Minha Conta
                   </a>
                 </div>
                 
@@ -244,10 +222,8 @@ export class EmailService {
       };
 
       await this.transporter.sendMail(mailOptions);
-      console.log(`✅ Email de boas-vindas enviado para: ${email}`);
       return true;
     } catch (error) {
-      console.error('❌ Erro ao enviar email de boas-vindas:', error);
       return false;
     }
   }

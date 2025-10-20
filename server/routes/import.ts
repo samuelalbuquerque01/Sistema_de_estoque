@@ -8,7 +8,6 @@ import { storage } from "../storage";
 const upload = multer({ storage: multer.memoryStorage() });
 const importRoutes = Router();
 
-// Schema para validação da NFe
 const NFeProductSchema = z.object({
   code: z.string(),
   name: z.string(),
@@ -38,7 +37,6 @@ const NFeDataSchema = z.object({
   products: z.array(NFeProductSchema),
 });
 
-// 🔥 PARSER CORRIGIDO - SEM mergeAttrs
 const parseNFeXml = async (xmlBuffer: Buffer): Promise<any> => {
   return new Promise((resolve, reject) => {
     const parser = new xml2js.Parser({
@@ -57,8 +55,6 @@ const parseNFeXml = async (xmlBuffer: Buffer): Promise<any> => {
       }
 
       try {
-        console.log('🔍 Estrutura XML parseada:', JSON.stringify(result, null, 2).substring(0, 500) + '...');
-
         const nfeProc = result.nfeProc;
         if (!nfeProc) {
           throw new Error('Estrutura nfeProc não encontrada');
@@ -74,13 +70,8 @@ const parseNFeXml = async (xmlBuffer: Buffer): Promise<any> => {
           throw new Error('Estrutura infNFe não encontrada');
         }
 
-        console.log('✅ Estrutura XML identificada corretamente');
-
-        // 1. CHAVE DE ACESSO (do atributo Id)
         const accessKey = infNFe.$?.Id?.replace('NFe', '') || `NFe${Date.now()}`;
-        console.log('🔑 Chave de acesso:', accessKey);
 
-        // 2. DADOS DO EMITENTE (FORNECEDOR)
         const emit = infNFe.emit;
         if (!emit) {
           throw new Error('Dados do emitente não encontrados');
@@ -98,30 +89,21 @@ const parseNFeXml = async (xmlBuffer: Buffer): Promise<any> => {
             zipCode: emit.enderEmit?.CEP
           }
         };
-        console.log('🏢 Fornecedor:', supplier.name);
-        console.log('📊 CNPJ:', supplier.cnpj);
 
-        // 3. DADOS DA NOTA
         const ide = infNFe.ide;
         const documentNumber = ide?.nNF || '000001';
         const emissionDate = ide?.dhEmi || new Date().toISOString();
         
-        // 🔥 CORREÇÃO: Garantir que a data seja válida
         let parsedEmissionDate: Date;
         try {
           parsedEmissionDate = new Date(emissionDate);
           if (isNaN(parsedEmissionDate.getTime())) {
-            console.warn('⚠️ Data de emissão inválida no XML, usando data atual');
             parsedEmissionDate = new Date();
           }
         } catch {
           parsedEmissionDate = new Date();
         }
 
-        console.log('📄 Número da nota:', documentNumber);
-        console.log('📅 Data de emissão (corrigida):', parsedEmissionDate.toISOString());
-
-        // 4. PRODUTOS - CORRIGIDO
         let det = infNFe.det;
         
         if (det && !Array.isArray(det)) {
@@ -130,13 +112,10 @@ const parseNFeXml = async (xmlBuffer: Buffer): Promise<any> => {
           det = [];
         }
 
-        console.log(`📦 Encontrados ${det.length} produtos no XML`);
-
         const products = det.map((item: any, index: number) => {
           try {
             const prod = item.prod;
             if (!prod) {
-              console.warn(`⚠️ Produto ${index + 1} sem dados`);
               return null;
             }
 
@@ -147,15 +126,6 @@ const parseNFeXml = async (xmlBuffer: Buffer): Promise<any> => {
             const unit = prod.uCom || 'UN';
             const totalValue = parseFloat(prod.vProd || '0');
 
-            console.log(`   🎯 Produto ${index + 1}:`, {
-              code,
-              name: name.substring(0, 50),
-              quantity,
-              unitPrice: `R$ ${unitPrice.toFixed(2)}`,
-              unit,
-              totalValue: `R$ ${totalValue.toFixed(2)}`
-            });
-
             return {
               code,
               name,
@@ -164,8 +134,7 @@ const parseNFeXml = async (xmlBuffer: Buffer): Promise<any> => {
               unit,
               totalValue
             };
-          } catch (productError) {
-            console.error(`❌ Erro ao processar produto ${index + 1}:`, productError);
+          } catch {
             return null;
           }
         }).filter(Boolean);
@@ -174,48 +143,29 @@ const parseNFeXml = async (xmlBuffer: Buffer): Promise<any> => {
           throw new Error('Nenhum produto válido encontrado no XML');
         }
 
-        // 5. VALOR TOTAL
         const total = infNFe.total?.ICMSTot;
         const totalValue = parseFloat(total?.vNF || '0');
-        console.log('💰 Valor total da nota:', `R$ ${totalValue.toFixed(2)}`);
 
         const nfeData = {
           accessKey,
           documentNumber: documentNumber.toString(),
           supplier,
-          emissionDate: parsedEmissionDate.toISOString(), // 🔥 DATA CORRIGIDA
+          emissionDate: parsedEmissionDate.toISOString(),
           totalValue,
           products
         };
 
-        console.log('✅ Dados extraídos com sucesso!');
-        console.log('📊 RESUMO:');
-        console.log('   - Chave:', nfeData.accessKey);
-        console.log('   - Nota:', nfeData.documentNumber);
-        console.log('   - Fornecedor:', nfeData.supplier.name);
-        console.log('   - CNPJ:', nfeData.supplier.cnpj);
-        console.log('   - Produtos:', nfeData.products.length);
-        console.log('   - Valor total:', `R$ ${nfeData.totalValue.toFixed(2)}`);
-
-        nfeData.products.forEach((prod, idx) => {
-          console.log(`   📍 Produto ${idx + 1}: ${prod.name} (${prod.quantity} ${prod.unit}) - R$ ${prod.totalValue.toFixed(2)}`);
-        });
-
         resolve(nfeData);
 
       } catch (parseError) {
-        console.error('❌ Erro ao processar XML:', parseError);
         reject(new Error(`Erro ao extrair dados da NFe: ${parseError}`));
       }
     });
   });
 };
 
-// POST /api/import/xml - Processar XML REAL
 importRoutes.post('/xml', upload.single('file'), async (req, res) => {
   try {
-    console.log('📥 Recebendo arquivo XML para importação...');
-    
     if (!req.file) {
       return res.status(400).json({ error: 'Nenhum arquivo enviado' });
     }
@@ -226,46 +176,35 @@ importRoutes.post('/xml', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'Apenas arquivos XML são suportados' });
     }
 
-    console.log(`📄 Processando arquivo: ${file.originalname} (${file.size} bytes)`);
-
-    // Parsear XML
     let nfeData;
     try {
       nfeData = await parseNFeXml(file.buffer);
-      console.log('✅ XML parseado com sucesso!');
     } catch (parseError) {
-      console.error('❌ Erro ao parsear XML:', parseError);
       return res.status(400).json({ 
         error: 'Erro ao processar XML',
         details: parseError.message
       });
     }
 
-    // Validar dados extraídos
     const validatedData = NFeDataSchema.parse(nfeData);
     
-    // 🔥 CORREÇÃO: USAR STORAGE DIRETAMENTE
     try {
       const importRecord = await storage.processNfeImport({
         fileName: file.originalname,
         accessKey: validatedData.accessKey,
         documentNumber: validatedData.documentNumber,
         supplier: validatedData.supplier,
-        emissionDate: validatedData.emissionDate, // 🔥 JÁ VEM VALIDADO
+        emissionDate: validatedData.emissionDate,
         totalValue: validatedData.totalValue,
         products: validatedData.products,
         xmlContent: file.buffer.toString('utf-8'),
         rawData: nfeData
-      }); // Remover userId por enquanto
-
-      console.log(`✅ Importação salva no banco: ${importRecord.id}`);
+      });
 
     } catch (dbError) {
-      console.error('❌ Erro ao salvar no banco:', dbError);
       // Continuar mesmo com erro no banco
     }
 
-    // Retornar resposta com dados REAIS
     res.json({
       success: true,
       productsProcessed: validatedData.products.length,
@@ -288,8 +227,6 @@ importRoutes.post('/xml', upload.single('file'), async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Erro na importação:', error);
-    
     if (error instanceof z.ZodError) {
       return res.status(400).json({ 
         error: 'Dados da NFe inválidos', 

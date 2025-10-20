@@ -1,4 +1,4 @@
-// src/pages/CadastroEmpresa.tsx
+// src/pages/CadastroEmpresa.tsx - VERSÃO LIMPA E SEGURA
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
@@ -53,10 +53,20 @@ export default function CadastroEmpresa() {
     register,
     handleSubmit,
     formState: { errors },
-    watch
+    setValue,
+    watch,
+    trigger
   } = useForm<EmpresaFormData>({
-    resolver: zodResolver(empresaSchema)
+    resolver: zodResolver(empresaSchema),
+    defaultValues: {
+      aceitarTermos: false
+    }
   });
+
+  const handleAceitarTermosChange = (checked: boolean | "indeterminate") => {
+    const isChecked = checked === true;
+    setValue("aceitarTermos", isChecked, { shouldValidate: true });
+  };
 
   const onSubmit = async (data: EmpresaFormData) => {
     setIsLoading(true);
@@ -67,7 +77,25 @@ export default function CadastroEmpresa() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          // Dados da empresa
+          empresaNome: data.empresaNome,
+          empresaCnpj: data.empresaCnpj,
+          empresaEmail: data.empresaEmail,
+          empresaTelefone: data.empresaTelefone,
+          empresaWebsite: data.empresaWebsite,
+          empresaCep: data.empresaCep,
+          empresaLogradouro: data.empresaLogradouro,
+          empresaNumero: data.empresaNumero,
+          empresaComplemento: data.empresaComplemento,
+          empresaCidade: data.empresaCidade,
+          empresaEstado: data.empresaEstado,
+          
+          // Dados do admin
+          adminNome: data.adminNome,
+          adminEmail: data.adminEmail,
+          adminSenha: data.adminSenha,
+        }),
       });
 
       if (response.ok) {
@@ -96,8 +124,10 @@ export default function CadastroEmpresa() {
         const data = await response.json();
         
         if (!data.erro) {
-          // Preencher automaticamente os campos de endereço
-          // (implementar via setValue do react-hook-form)
+          setValue("empresaLogradouro", data.logradouro);
+          setValue("empresaCidade", data.localidade);
+          setValue("empresaEstado", data.uf);
+          trigger(["empresaLogradouro", "empresaCidade", "empresaEstado"]);
         }
       } catch (error) {
         console.error('Erro ao buscar CEP:', error);
@@ -116,7 +146,7 @@ export default function CadastroEmpresa() {
             className="mb-4"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar
+            Voltar para Escolha
           </Button>
           
           <div className="mx-auto w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center mb-4">
@@ -131,7 +161,7 @@ export default function CadastroEmpresa() {
           </p>
         </div>
 
-        <Card>
+        <Card className="shadow-xl border-0">
           <CardContent className="p-6">
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
               {/* Seção 1: Dados da Empresa */}
@@ -148,6 +178,7 @@ export default function CadastroEmpresa() {
                       id="empresaNome"
                       placeholder="Nome fantasia ou razão social"
                       {...register('empresaNome')}
+                      className="h-11"
                     />
                     {errors.empresaNome && (
                       <p className="text-sm text-red-600">{errors.empresaNome.message}</p>
@@ -160,6 +191,7 @@ export default function CadastroEmpresa() {
                       id="empresaCnpj"
                       placeholder="00.000.000/0001-00"
                       {...register('empresaCnpj')}
+                      className="h-11"
                     />
                     {errors.empresaCnpj && (
                       <p className="text-sm text-red-600">{errors.empresaCnpj.message}</p>
@@ -169,12 +201,12 @@ export default function CadastroEmpresa() {
                   <div className="space-y-2">
                     <Label htmlFor="empresaEmail">Email Corporativo *</Label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
                         id="empresaEmail"
                         type="email"
                         placeholder="empresa@exemplo.com"
-                        className="pl-9"
+                        className="pl-10 h-11"
                         {...register('empresaEmail')}
                       />
                     </div>
@@ -186,11 +218,11 @@ export default function CadastroEmpresa() {
                   <div className="space-y-2">
                     <Label htmlFor="empresaTelefone">Telefone *</Label>
                     <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
                         id="empresaTelefone"
                         placeholder="(11) 99999-9999"
-                        className="pl-9"
+                        className="pl-10 h-11"
                         {...register('empresaTelefone')}
                       />
                     </div>
@@ -202,11 +234,11 @@ export default function CadastroEmpresa() {
                   <div className="md:col-span-2 space-y-2">
                     <Label htmlFor="empresaWebsite">Website (Opcional)</Label>
                     <div className="relative">
-                      <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Globe className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
                         id="empresaWebsite"
                         placeholder="https://www.suaempresa.com.br"
-                        className="pl-9"
+                        className="pl-10 h-11"
                         {...register('empresaWebsite')}
                       />
                     </div>
@@ -228,6 +260,7 @@ export default function CadastroEmpresa() {
                       id="empresaCep"
                       placeholder="00000-000"
                       {...register('empresaCep')}
+                      className="h-11"
                       onBlur={(e) => buscarCEP(e.target.value)}
                     />
                     {errors.empresaCep && (
@@ -241,6 +274,7 @@ export default function CadastroEmpresa() {
                       id="empresaNumero"
                       placeholder="123"
                       {...register('empresaNumero')}
+                      className="h-11"
                     />
                     {errors.empresaNumero && (
                       <p className="text-sm text-red-600">{errors.empresaNumero.message}</p>
@@ -253,6 +287,7 @@ export default function CadastroEmpresa() {
                       id="empresaLogradouro"
                       placeholder="Rua, Avenida, etc."
                       {...register('empresaLogradouro')}
+                      className="h-11"
                     />
                     {errors.empresaLogradouro && (
                       <p className="text-sm text-red-600">{errors.empresaLogradouro.message}</p>
@@ -265,6 +300,7 @@ export default function CadastroEmpresa() {
                       id="empresaComplemento"
                       placeholder="Sala, Andar, etc."
                       {...register('empresaComplemento')}
+                      className="h-11"
                     />
                   </div>
 
@@ -274,6 +310,7 @@ export default function CadastroEmpresa() {
                       id="empresaCidade"
                       placeholder="São Paulo"
                       {...register('empresaCidade')}
+                      className="h-11"
                     />
                     {errors.empresaCidade && (
                       <p className="text-sm text-red-600">{errors.empresaCidade.message}</p>
@@ -287,6 +324,7 @@ export default function CadastroEmpresa() {
                       placeholder="SP"
                       maxLength={2}
                       {...register('empresaEstado')}
+                      className="h-11"
                     />
                     {errors.empresaEstado && (
                       <p className="text-sm text-red-600">{errors.empresaEstado.message}</p>
@@ -306,11 +344,11 @@ export default function CadastroEmpresa() {
                   <div className="space-y-2">
                     <Label htmlFor="adminNome">Nome Completo *</Label>
                     <div className="relative">
-                      <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
                         id="adminNome"
                         placeholder="Seu nome completo"
-                        className="pl-9"
+                        className="pl-10 h-11"
                         {...register('adminNome')}
                       />
                     </div>
@@ -322,12 +360,12 @@ export default function CadastroEmpresa() {
                   <div className="space-y-2">
                     <Label htmlFor="adminEmail">Email *</Label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
                         id="adminEmail"
                         type="email"
                         placeholder="seu@email.com"
-                        className="pl-9"
+                        className="pl-10 h-11"
                         {...register('adminEmail')}
                       />
                     </div>
@@ -339,11 +377,11 @@ export default function CadastroEmpresa() {
                   <div className="space-y-2">
                     <Label htmlFor="adminTelefone">Telefone *</Label>
                     <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
                         id="adminTelefone"
                         placeholder="(11) 99999-9999"
-                        className="pl-9"
+                        className="pl-10 h-11"
                         {...register('adminTelefone')}
                       />
                     </div>
@@ -355,12 +393,12 @@ export default function CadastroEmpresa() {
                   <div className="space-y-2">
                     <Label htmlFor="adminSenha">Senha *</Label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
                         id="adminSenha"
                         type="password"
                         placeholder="Mínimo 6 caracteres"
-                        className="pl-9"
+                        className="pl-10 h-11"
                         {...register('adminSenha')}
                       />
                     </div>
@@ -372,12 +410,12 @@ export default function CadastroEmpresa() {
                   <div className="space-y-2">
                     <Label htmlFor="adminConfirmarSenha">Confirmar Senha *</Label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
                         id="adminConfirmarSenha"
                         type="password"
                         placeholder="Digite novamente sua senha"
-                        className="pl-9"
+                        className="pl-10 h-11"
                         {...register('adminConfirmarSenha')}
                       />
                     </div>
@@ -389,50 +427,62 @@ export default function CadastroEmpresa() {
               </div>
 
               {/* Termos e Condições */}
-              <div className="space-y-4">
-                <div className="flex items-start space-x-2">
+              <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-start space-x-3">
                   <Checkbox 
                     id="aceitarTermos" 
-                    {...register('aceitarTermos')}
+                    checked={watch("aceitarTermos")}
+                    onCheckedChange={handleAceitarTermosChange}
                   />
-                  <Label htmlFor="aceitarTermos" className="text-sm leading-relaxed">
-                    Concordo com os{' '}
-                    <Button variant="link" className="p-0 h-auto text-blue-600">
-                      Termos de Serviço
-                    </Button>{' '}
-                    e{' '}
-                    <Button variant="link" className="p-0 h-auto text-blue-600">
-                      Política de Privacidade
-                    </Button>
-                  </Label>
+                  <div className="space-y-1">
+                    <Label htmlFor="aceitarTermos" className="text-sm leading-relaxed cursor-pointer font-medium text-blue-900">
+                      Aceito os Termos de Serviço e Política de Privacidade
+                    </Label>
+                    <p className="text-xs text-blue-700">
+                      Ao marcar esta opção, você concorda com nossos termos e políticas de uso do sistema.
+                    </p>
+                  </div>
                 </div>
                 {errors.aceitarTermos && (
-                  <p className="text-sm text-red-600">{errors.aceitarTermos.message}</p>
+                  <p className="text-sm text-red-600 font-medium">{errors.aceitarTermos.message}</p>
                 )}
               </div>
 
               {/* Botão de Submit */}
               <Button 
                 type="submit" 
-                className="w-full py-3 text-lg" 
-                disabled={isLoading}
+                className="w-full py-3 text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 h-12 font-semibold" 
+                disabled={isLoading || !watch("aceitarTermos")}
               >
                 {isLoading ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
                     Criando Conta...
                   </>
                 ) : (
-                  'Criar Conta da Empresa'
+                  <>
+                    <Building className="h-5 w-5 mr-2" />
+                    Criar Conta da Empresa
+                  </>
                 )}
               </Button>
+
+              <p className="text-center text-sm text-gray-500">
+                Ao criar uma conta, você concorda com nossos termos e políticas.
+              </p>
             </form>
           </CardContent>
         </Card>
 
-        <p className="text-center text-sm text-gray-600 mt-6">
-          Ao criar uma conta, você concorda com nossos termos e políticas.
-        </p>
+        <div className="text-center mt-6">
+          <Button 
+            variant="link" 
+            className="text-blue-600"
+            onClick={() => setLocation('/login')}
+          >
+            Já tem uma conta? Faça login aqui
+          </Button>
+        </div>
       </div>
     </div>
   );

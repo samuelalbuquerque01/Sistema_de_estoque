@@ -78,7 +78,6 @@ function ReportCard({ title, description, icon, onGenerate, showPeriodFilter = f
 export default function Relatorios() {
   const [isGenerating, setIsGenerating] = useState<string | null>(null);
 
-  // Buscar estatísticas dos relatórios
   const { data: stats, refetch: refetchStats } = useQuery({
     queryKey: ['/api/reports/stats'],
   });
@@ -94,7 +93,7 @@ export default function Relatorios() {
         },
         body: JSON.stringify({
           reportType: reportName,
-          format: 'pdf', // 🔥 SEMPRE PDF
+          format: 'pdf',
           period: period || 'all'
         })
       });
@@ -132,7 +131,6 @@ export default function Relatorios() {
         throw new Error(errorData.error || 'Erro ao gerar relatório');
       }
     } catch (error) {
-      console.error('Erro ao gerar relatório:', error);
       toast.error(`Erro ao gerar relatório: ${error instanceof Error ? error.message : 'Tente novamente'}`);
     } finally {
       setIsGenerating(null);
@@ -189,7 +187,6 @@ export default function Relatorios() {
         </p>
       </div>
 
-      {/* Estatísticas Rápidas */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardContent className="p-6">
@@ -230,7 +227,6 @@ export default function Relatorios() {
         </Card>
       </div>
 
-      {/* Cards de Relatórios */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {reportCards.map((card, index) => (
           <ReportCard
@@ -244,7 +240,6 @@ export default function Relatorios() {
         ))}
       </div>
 
-      {/* Loading Overlay */}
       {isGenerating && (
         <div className="fixed inset-0 bg-background/80 flex items-center justify-center z-50">
           <div className="bg-card p-6 rounded-lg shadow-lg border flex items-center gap-3">
@@ -255,7 +250,6 @@ export default function Relatorios() {
         </div>
       )}
 
-      {/* Informações sobre PDF */}
       <Card>
         <CardContent className="p-6">
           <h3 className="font-semibold mb-3">Sobre os Relatórios PDF</h3>

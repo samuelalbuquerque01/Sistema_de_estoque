@@ -6,6 +6,8 @@ interface User {
   username: string;
   name: string;
   email: string;
+  role: string;
+  emailVerificado: boolean;
 }
 
 interface AuthContextType {
@@ -21,14 +23,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Carregar usuário do localStorage ao inicializar
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
       try {
         setUser(JSON.parse(savedUser));
       } catch (error) {
-        console.error('Erro ao carregar usuário:', error);
         localStorage.removeItem('user');
       }
     }
@@ -43,7 +43,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     setUser(null);
     localStorage.removeItem('user');
-    // Redirecionar para login
     window.location.href = '/login';
   };
 
