@@ -1,4 +1,4 @@
-// server/index.ts - VERSÃO FINAL CORRIGIDA
+// server/index.ts - VERSÃO CORRIGIDA
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -18,9 +18,9 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cors());
 app.use(helmet());
 
-// ✅ Registrar rotas da API PRIMEIRO
+// ✅ Registrar rotas da API PRIMEIRO (SÍNCRONO)
 console.log('📡 Registrando rotas da API...');
-registerRoutes(app);
+registerRoutes(app); // Remove o await
 
 // ✅ Servir arquivos estáticos do build do Vite
 const staticPath = path.join(process.cwd(), 'dist', 'public');
@@ -33,7 +33,8 @@ app.get('*', (req, res) => {
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ 
       error: 'Endpoint da API não encontrado',
-      path: req.path 
+      path: req.path,
+      message: 'Verifique se a rota está registrada corretamente'
     });
   }
   

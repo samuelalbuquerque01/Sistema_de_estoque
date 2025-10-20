@@ -1,6 +1,5 @@
 // server/routes.ts - VERSÃO COMPLETA ATUALIZADA PARA RENDER
 import type { Express } from "express";
-import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { 
   insertProductSchema, insertCategorySchema, insertLocationSchema, 
@@ -77,7 +76,7 @@ function sendXmlResponse(res: any, nfeData: any, importItem: any) {
   res.send(xmlContent);
 }
 
-export async function registerRoutes(app: Express): Promise<void> {
+export function registerRoutes(app: Express): void {
   console.log('🔄 Inicializando serviços...');
   
   // ✅ Health Check - DEVE SER A PRIMEIRA ROTA
@@ -130,20 +129,6 @@ export async function registerRoutes(app: Express): Promise<void> {
 
   // Inicializar serviços
   EmailService.initialize();
-  
-  try {
-    await storage.ensureDefaultCategories();
-    console.log('✅ Categorias inicializadas');
-  } catch (error) {
-    console.error('❌ Erro ao inicializar categorias:', error);
-  }
-
-  try {
-    await storage.ensureDefaultUser();
-    console.log('✅ Usuário admin inicializado');
-  } catch (error) {
-    console.error('❌ Erro ao inicializar usuário admin:', error);
-  }
   
   // Rotas de importação e notas fiscais
   app.use("/api/import", importRoutes);
@@ -435,6 +420,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Dashboard
   app.get("/api/dashboard/stats", async (req, res) => {
     try {
+      console.log('📊 Acessando dashboard stats...');
       const products = await storage.getProducts();
       const movements = await storage.getMovements();
       const categories = await storage.getCategories();
@@ -568,9 +554,11 @@ export async function registerRoutes(app: Express): Promise<void> {
         locations: locationSummary
       };
 
+      console.log('✅ Dashboard stats retornados com sucesso');
       res.json(dashboardData);
 
     } catch (error) {
+      console.error('❌ Erro ao carregar dashboard:', error);
       res.status(500).json({ 
         error: "Erro interno do servidor ao carregar dashboard",
         message: error instanceof Error ? error.message : 'Erro desconhecido'
@@ -581,9 +569,11 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Produtos
   app.get("/api/products", async (req, res) => {
     try {
+      console.log('📦 Acessando lista de produtos...');
       const products = await storage.getProducts();
       res.json(products);
     } catch (error) {
+      console.error('❌ Erro ao buscar produtos:', error);
       res.status(500).json({ error: "Erro interno do servidor" });
     }
   });
