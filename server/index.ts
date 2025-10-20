@@ -1,4 +1,4 @@
-// server/index.ts - VERSÃO CORRIGIDA
+// server/index.ts - VERSÃO COM MIGRAÇÃO AUTOMÁTICA
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -9,6 +9,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { registerRoutes } from './routes';
 import path from 'path';
+import { migrate } from './migrate';
 
 const app = express();
 
@@ -18,9 +19,17 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cors());
 app.use(helmet());
 
-// ✅ Registrar rotas da API PRIMEIRO (SÍNCRONO)
+// ✅ Executar migração do banco de dados ANTES das rotas
+console.log('🗄️ Executando migração do banco de dados...');
+migrate().then(() => {
+  console.log('✅ Migração do banco concluída');
+}).catch((error) => {
+  console.error('❌ Erro na migração do banco:', error);
+});
+
+// ✅ Registrar rotas da API
 console.log('📡 Registrando rotas da API...');
-registerRoutes(app); // Remove o await
+registerRoutes(app);
 
 // ✅ Servir arquivos estáticos do build do Vite
 const staticPath = path.join(process.cwd(), 'dist', 'public');
@@ -29,7 +38,6 @@ app.use(express.static(staticPath));
 
 // ✅ Rota fallback para SPA - APENAS para rotas que não são API
 app.get('*', (req, res) => {
-  // Se a rota começa com /api, retorna 404 para API
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ 
       error: 'Endpoint da API não encontrado',
@@ -38,7 +46,6 @@ app.get('*', (req, res) => {
     });
   }
   
-  // Para todas as outras rotas, serve o SPA
   console.log('📄 Servindo SPA para rota:', req.path);
   res.sendFile(path.join(staticPath, 'index.html'));
 });
