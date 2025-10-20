@@ -1,12 +1,14 @@
-// ✅ CORREÇÃO CRÍTICA PARA RENDER - VERSÃO ATUALIZADA
-// MOVER dotenv para DENTRO da função async
+// ✅ SOLUÇÃO DEFINITIVA PARA RENDER
+import dotenv from 'dotenv';
+dotenv.config();
 
-// SEU CÓDIGO ATUAL - REMOVER dotenv do topo
+console.log('🚀 Iniciando StockMaster Server...');
+console.log('📊 Environment:', process.env.NODE_ENV);
+console.log('🔗 DATABASE_URL:', process.env.DATABASE_URL ? 'Configurada' : 'Não configurada');
+
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-
-// ✅ ADICIONE ESTA IMPORTACAO
 import { migrate } from "./migrate";
 
 const app = express();
@@ -45,20 +47,6 @@ app.use((req, res, next) => {
 
 (async () => {
   try {
-    // ✅ CARREGAR DOTENV DENTRO DA FUNÇÃO ASYNC
-    const dotenv = await import('dotenv');
-    dotenv.config();
-
-    console.log('🚀 Iniciando StockMaster Server...');
-    console.log('📊 Environment:', process.env.NODE_ENV);
-    console.log('🔗 DATABASE_URL:', process.env.DATABASE_URL ? 'Configurada' : 'Não configurada');
-
-    // DEBUG: Verificar se o arquivo está sendo executado
-    console.log('🔍 DEBUG: server/index.ts started executing');
-    console.log('🔍 DEBUG: Current directory:', process.cwd());
-    console.log('🔍 DEBUG: NODE_ENV:', process.env.NODE_ENV);
-
-    // ✅ EXECUTAR MIGRAÇÃO ANTES DE INICIAR
     console.log('🔄 Iniciando migração do banco de dados...');
     await migrate();
     console.log('✅ Migração do banco de dados concluída!');
@@ -73,16 +61,12 @@ app.use((req, res, next) => {
       res.status(status).json({ message });
     });
 
-    // importantly only setup vite in development and after
-    // setting up all the other routes so the catch-all route
-    // doesn't interfere with the other routes
     if (app.get("env") === "development") {
       await setupVite(app, server);
     } else {
       serveStatic(app);
     }
 
-    // ✅ CORREÇÃO PARA RENDER - usar 0.0.0.0 em produção
     const port = parseInt(process.env.PORT || '5000', 10);
     const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
 
