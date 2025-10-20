@@ -10,21 +10,37 @@ const buildOptions = {
   outfile: 'dist/index.js',
   packages: 'external',
   external: [
+    // Dependências do Node.js
+    'fs',
+    'path',
+    'crypto',
+    'http',
+    'https',
+    'url',
+    'util',
+    'stream',
+    'buffer',
+    'os',
+    'net',
+    'tls',
+    'zlib',
+    'events',
+    
     // Dependências do PostgreSQL
     'pg',
     'bcrypt', 
     'pg-native',
     '@neondatabase/serverless',
     
-    // Dependências do Babel (causavam erro)
+    // Dependências do Babel
     '@babel/*',
     
-    // Dependências do LightningCSS (causavam erro)
+    // Dependências do LightningCSS
     'lightningcss',
     '../pkg',
     '../lightningcss.*.node',
     
-    // Outras dependências que não devem ser incluídas
+    // Outras dependências
     'express',
     'drizzle-orm',
     'postgres',
@@ -43,7 +59,11 @@ const buildOptions = {
   ],
   sourcemap: false,
   minify: true,
-  logLevel: 'info'
+  logLevel: 'info',
+  // Configurações importantes para ESM
+  mainFields: ['module', 'main'],
+  conditions: ['module', 'import', 'require'],
+  inject: ['./server/shims.js'] // Adicionar shims para require
 };
 
 try {

@@ -1,19 +1,7 @@
 // ✅ CORREÇÃO CRÍTICA PARA RENDER - VERSÃO ATUALIZADA
-import dotenv from 'dotenv';
+// MOVER dotenv para DENTRO da função async
 
-// Carrega .env em todos os ambientes, mas prioriza variáveis do Render
-dotenv.config();
-
-console.log('🚀 Iniciando StockMaster Server...');
-console.log('📊 Environment:', process.env.NODE_ENV);
-console.log('🔗 DATABASE_URL:', process.env.DATABASE_URL ? 'Configurada' : 'Não configurada');
-
-// DEBUG: Verificar se o arquivo está sendo executado
-console.log('🔍 DEBUG: server/index.ts started executing');
-console.log('🔍 DEBUG: Current directory:', process.cwd());
-console.log('🔍 DEBUG: NODE_ENV:', process.env.NODE_ENV);
-
-// SEU CÓDIGO ATUAL
+// SEU CÓDIGO ATUAL - REMOVER dotenv do topo
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
@@ -57,6 +45,19 @@ app.use((req, res, next) => {
 
 (async () => {
   try {
+    // ✅ CARREGAR DOTENV DENTRO DA FUNÇÃO ASYNC
+    const dotenv = await import('dotenv');
+    dotenv.config();
+
+    console.log('🚀 Iniciando StockMaster Server...');
+    console.log('📊 Environment:', process.env.NODE_ENV);
+    console.log('🔗 DATABASE_URL:', process.env.DATABASE_URL ? 'Configurada' : 'Não configurada');
+
+    // DEBUG: Verificar se o arquivo está sendo executado
+    console.log('🔍 DEBUG: server/index.ts started executing');
+    console.log('🔍 DEBUG: Current directory:', process.cwd());
+    console.log('🔍 DEBUG: NODE_ENV:', process.env.NODE_ENV);
+
     // ✅ EXECUTAR MIGRAÇÃO ANTES DE INICIAR
     console.log('🔄 Iniciando migração do banco de dados...');
     await migrate();
