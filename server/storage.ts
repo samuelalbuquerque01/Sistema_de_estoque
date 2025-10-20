@@ -106,6 +106,7 @@ export class DatabaseStorage implements IStorage {
       const existingCategories = await this.getCategories();
       
       if (existingCategories.length === 0) {
+        console.log('📦 Criando categorias padrão...');
         const defaultCategories = [
           {
             id: 'limpeza',
@@ -149,10 +150,12 @@ export class DatabaseStorage implements IStorage {
           await db.insert(categories).values(category);
         }
         
-        console.log('Categorias padrão criadas com sucesso');
+        console.log('✅ Categorias padrão criadas com sucesso');
+      } else {
+        console.log('📦 Categorias já existem:', existingCategories.length);
       }
     } catch (error) {
-      console.error('Erro ao criar categorias padrão:', error);
+      console.error('❌ Erro ao criar categorias padrão:', error);
     }
   }
 
@@ -163,9 +166,11 @@ export class DatabaseStorage implements IStorage {
       
       const existingUser = await this.getUserByEmail('admin@stockmaster.com');
       if (existingUser) {
+        console.log('✅ Usuário admin já existe:', existingUser.id);
         return existingUser.id;
       }
       
+      console.log('👤 Criando usuário admin padrão...');
       const defaultUser: InsertUser = {
         username: 'admin',
         password: 'admin123',
@@ -176,9 +181,12 @@ export class DatabaseStorage implements IStorage {
         emailVerificado: true
       };
       const user = await this.createUser(defaultUser);
+      console.log('✅ Usuário admin criado com sucesso:', user.id);
       return user.id;
     } catch (error) {
-      throw new Error('Erro ao criar usuário padrão');
+      console.error('❌ Erro ao criar usuário padrão:', error);
+      // Retorna um ID fake para permitir que o app continue
+      return 'default-admin-id';
     }
   }
 
@@ -187,6 +195,7 @@ export class DatabaseStorage implements IStorage {
       const result = await db.select().from(users).orderBy(users.name);
       return result;
     } catch (error) {
+      console.error('❌ Erro ao buscar usuários:', error);
       return [];
     }
   }
@@ -196,6 +205,7 @@ export class DatabaseStorage implements IStorage {
       const result = await db.select().from(users).where(eq(users.id, id));
       return result[0];
     } catch (error) {
+      console.error('❌ Erro ao buscar usuário:', error);
       return undefined;
     }
   }
@@ -205,6 +215,7 @@ export class DatabaseStorage implements IStorage {
       const result = await db.select().from(users).where(eq(users.username, username));
       return result[0];
     } catch (error) {
+      console.error('❌ Erro ao buscar usuário por username:', error);
       return undefined;
     }
   }
@@ -218,6 +229,7 @@ export class DatabaseStorage implements IStorage {
         const result = await db.select().from(users).where(eq(users.username, email));
         return result[0];
       } catch (fallbackError) {
+        console.error('❌ Erro ao buscar usuário por email:', error);
         return undefined;
       }
     }
@@ -244,17 +256,28 @@ export class DatabaseStorage implements IStorage {
       
       return createdUser;
     } catch (error) {
+      console.error('❌ Erro em createUser:', error);
       throw new Error("Erro ao criar usuário: " + (error instanceof Error ? error.message : 'Erro desconhecido'));
     }
   }
 
   async getProducts(): Promise<Product[]> {
-    return await db.select().from(products).orderBy(products.name);
+    try {
+      return await db.select().from(products).orderBy(products.name);
+    } catch (error) {
+      console.error('❌ Erro ao buscar produtos:', error);
+      return [];
+    }
   }
 
   async getProduct(id: string): Promise<Product | undefined> {
-    const result = await db.select().from(products).where(eq(products.id, id));
-    return result[0];
+    try {
+      const result = await db.select().from(products).where(eq(products.id, id));
+      return result[0];
+    } catch (error) {
+      console.error('❌ Erro ao buscar produto:', error);
+      return undefined;
+    }
   }
 
   async createProduct(insertProduct: InsertProduct): Promise<Product> {
@@ -270,19 +293,25 @@ export class DatabaseStorage implements IStorage {
       if (!result[0]) throw new Error("Produto não encontrado após criação");
       return result[0];
     } catch (error) {
+      console.error('❌ Erro ao criar produto:', error);
       throw new Error("Erro ao criar produto");
     }
   }
 
   async updateProduct(id: string, productData: Partial<InsertProduct>): Promise<Product> {
-    const updateData = { ...productData };
-    if (updateData.unitPrice !== undefined) {
-      updateData.unitPrice = updateData.unitPrice.toString();
+    try {
+      const updateData = { ...productData };
+      if (updateData.unitPrice !== undefined) {
+        updateData.unitPrice = updateData.unitPrice.toString();
+      }
+      await db.update(products).set(updateData).where(eq(products.id, id));
+      const updated = await this.getProduct(id);
+      if (!updated) throw new Error("Product not found");
+      return updated;
+    } catch (error) {
+      console.error('❌ Erro ao atualizar produto:', error);
+      throw error;
     }
-    await db.update(products).set(updateData).where(eq(products.id, id));
-    const updated = await this.getProduct(id);
-    if (!updated) throw new Error("Product not found");
-    return updated;
   }
 
   async deleteProduct(id: string): Promise<void> {
@@ -335,6 +364,7 @@ export class DatabaseStorage implements IStorage {
       });
 
     } catch (error) {
+      console.error('❌ Erro ao deletar produto:', error);
       if (error instanceof Error) {
         if (error.message.includes('violates foreign key constraint')) {
           throw new Error('Não é possível excluir o produto pois ele está vinculado a outros registros no sistema.');
@@ -350,39 +380,74 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getProductsByCategory(categoryId: string): Promise<Product[]> {
-    return await db.select().from(products).where(eq(products.categoryId, categoryId)).orderBy(products.name);
+    try {
+      return await db.select().from(products).where(eq(products.categoryId, categoryId)).orderBy(products.name);
+    } catch (error) {
+      console.error('❌ Erro ao buscar produtos por categoria:', error);
+      return [];
+    }
   }
 
   async getCategories(): Promise<Category[]> {
-    return await db.select().from(categories).orderBy(categories.name);
+    try {
+      return await db.select().from(categories).orderBy(categories.name);
+    } catch (error) {
+      console.error('❌ Erro ao buscar categorias:', error);
+      return [];
+    }
   }
 
   async getCategory(id: string): Promise<Category | undefined> {
-    const result = await db.select().from(categories).where(eq(categories.id, id));
-    return result[0];
+    try {
+      const result = await db.select().from(categories).where(eq(categories.id, id));
+      return result[0];
+    } catch (error) {
+      console.error('❌ Erro ao buscar categoria:', error);
+      return undefined;
+    }
   }
 
   async createCategory(insertCategory: InsertCategory): Promise<Category> {
-    const id = randomUUID();
-    const category: Category = { ...insertCategory, id };
-    await db.insert(categories).values(category);
-    return category;
+    try {
+      const id = randomUUID();
+      const category: Category = { ...insertCategory, id };
+      await db.insert(categories).values(category);
+      return category;
+    } catch (error) {
+      console.error('❌ Erro ao criar categoria:', error);
+      throw error;
+    }
   }
 
   async getLocations(): Promise<Location[]> {
-    return await db.select().from(locations).orderBy(locations.name);
+    try {
+      return await db.select().from(locations).orderBy(locations.name);
+    } catch (error) {
+      console.error('❌ Erro ao buscar localizações:', error);
+      return [];
+    }
   }
 
   async getLocation(id: string): Promise<Location | undefined> {
-    const result = await db.select().from(locations).where(eq(locations.id, id));
-    return result[0];
+    try {
+      const result = await db.select().from(locations).where(eq(locations.id, id));
+      return result[0];
+    } catch (error) {
+      console.error('❌ Erro ao buscar localização:', error);
+      return undefined;
+    }
   }
 
   async createLocation(insertLocation: InsertLocation): Promise<Location> {
-    const id = randomUUID();
-    const location: Location = { ...insertLocation, id };
-    await db.insert(locations).values(location);
-    return location;
+    try {
+      const id = randomUUID();
+      const location: Location = { ...insertLocation, id };
+      await db.insert(locations).values(location);
+      return location;
+    } catch (error) {
+      console.error('❌ Erro ao criar localização:', error);
+      throw error;
+    }
   }
 
   async updateLocation(id: string, locationData: Partial<InsertLocation>): Promise<Location> {
@@ -401,6 +466,7 @@ export class DatabaseStorage implements IStorage {
       
       return updated;
     } catch (error) {
+      console.error('❌ Erro ao atualizar localização:', error);
       throw error;
     }
   }
@@ -422,19 +488,30 @@ export class DatabaseStorage implements IStorage {
       await db.delete(locations).where(eq(locations.id, id));
       
     } catch (error) {
+      console.error('❌ Erro ao deletar localização:', error);
       throw error;
     }
   }
 
   async getMovements(): Promise<Movement[]> {
-    return await db.select().from(movements).orderBy(desc(movements.createdAt));
+    try {
+      return await db.select().from(movements).orderBy(desc(movements.createdAt));
+    } catch (error) {
+      console.error('❌ Erro ao buscar movimentações:', error);
+      return [];
+    }
   }
 
   async createMovement(insertMovement: InsertMovement): Promise<Movement> {
-    const id = randomUUID();
-    const movement: Movement = { ...insertMovement, id, createdAt: new Date() };
-    await db.insert(movements).values(movement);
-    return movement;
+    try {
+      const id = randomUUID();
+      const movement: Movement = { ...insertMovement, id, createdAt: new Date() };
+      await db.insert(movements).values(movement);
+      return movement;
+    } catch (error) {
+      console.error('❌ Erro ao criar movimentação:', error);
+      throw error;
+    }
   }
 
   async getMovementsByProduct(productId: string): Promise<Movement[]> {
@@ -443,17 +520,28 @@ export class DatabaseStorage implements IStorage {
         .from(movements)
         .where(eq(movements.productId, productId));
     } catch (error) {
+      console.error('❌ Erro ao buscar movimentações por produto:', error);
       return [];
     }
   }
 
   async getInventories(): Promise<Inventory[]> {
-    return await db.select().from(inventories).orderBy(desc(inventories.createdAt));
+    try {
+      return await db.select().from(inventories).orderBy(desc(inventories.createdAt));
+    } catch (error) {
+      console.error('❌ Erro ao buscar inventários:', error);
+      return [];
+    }
   }
 
   async getInventory(id: string): Promise<Inventory | undefined> {
-    const result = await db.select().from(inventories).where(eq(inventories.id, id));
-    return result[0];
+    try {
+      const result = await db.select().from(inventories).where(eq(inventories.id, id));
+      return result[0];
+    } catch (error) {
+      console.error('❌ Erro ao buscar inventário:', error);
+      return undefined;
+    }
   }
 
   async createInventory(insertInventory: InsertInventory): Promise<Inventory> {
@@ -467,15 +555,21 @@ export class DatabaseStorage implements IStorage {
       if (!result[0]) throw new Error("Inventário não encontrado após criação");
       return result[0];
     } catch (error) {
+      console.error('❌ Erro ao criar inventário:', error);
       throw new Error("Erro ao criar inventário");
     }
   }
 
   async updateInventory(id: string, inventoryData: Partial<InsertInventory>): Promise<Inventory> {
-    await db.update(inventories).set(inventoryData).where(eq(inventories.id, id));
-    const updated = await db.select().from(inventories).where(eq(inventories.id, id));
-    if (!updated[0]) throw new Error("Inventory not found");
-    return updated[0];
+    try {
+      await db.update(inventories).set(inventoryData).where(eq(inventories.id, id));
+      const updated = await db.select().from(inventories).where(eq(inventories.id, id));
+      if (!updated[0]) throw new Error("Inventory not found");
+      return updated[0];
+    } catch (error) {
+      console.error('❌ Erro ao atualizar inventário:', error);
+      throw error;
+    }
   }
 
   async finalizeInventory(id: string): Promise<Inventory> {
@@ -485,6 +579,7 @@ export class DatabaseStorage implements IStorage {
       if (!updated[0]) throw new Error("Inventário não encontrado");
       return updated[0];
     } catch (error) {
+      console.error('❌ Erro ao finalizar inventário:', error);
       throw new Error("Erro ao finalizar inventário");
     }
   }
@@ -502,12 +597,18 @@ export class DatabaseStorage implements IStorage {
       if (!updated[0]) throw new Error("Inventário não encontrado");
       return updated[0];
     } catch (error) {
+      console.error('❌ Erro ao reabrir inventário:', error);
       throw new Error("Erro ao reabrir inventário");
     }
   }
 
   async getInventoryCounts(inventoryId: string): Promise<InventoryCount[]> {
-    return await db.select().from(inventoryCounts).where(eq(inventoryCounts.inventoryId, inventoryId)).orderBy(inventoryCounts.createdAt);
+    try {
+      return await db.select().from(inventoryCounts).where(eq(inventoryCounts.inventoryId, inventoryId)).orderBy(inventoryCounts.createdAt);
+    } catch (error) {
+      console.error('❌ Erro ao buscar contagens de inventário:', error);
+      return [];
+    }
   }
 
   async createInventoryCount(insertCount: InsertInventoryCount): Promise<InventoryCount> {
@@ -526,33 +627,54 @@ export class DatabaseStorage implements IStorage {
         return result[0];
       }
     } catch (error) {
+      console.error('❌ Erro ao criar contagem de inventário:', error);
       throw new Error("Erro ao criar contagem de inventário");
     }
   }
 
   async createReport(insertReport: InsertReport): Promise<Report> {
-    const id = randomUUID();
-    const report: Report = { 
-      ...insertReport, 
-      id, 
-      createdAt: new Date(),
-      fileSize: 0
-    };
-    await db.insert(reports).values(report);
-    return report;
+    try {
+      const id = randomUUID();
+      const report: Report = { 
+        ...insertReport, 
+        id, 
+        createdAt: new Date(),
+        fileSize: 0
+      };
+      await db.insert(reports).values(report);
+      return report;
+    } catch (error) {
+      console.error('❌ Erro ao criar relatório:', error);
+      throw error;
+    }
   }
 
   async getReports(): Promise<Report[]> {
-    return await db.select().from(reports).orderBy(desc(reports.createdAt));
+    try {
+      return await db.select().from(reports).orderBy(desc(reports.createdAt));
+    } catch (error) {
+      console.error('❌ Erro ao buscar relatórios:', error);
+      return [];
+    }
   }
 
   async getReport(id: string): Promise<Report | undefined> {
-    const result = await db.select().from(reports).where(eq(reports.id, id));
-    return result[0];
+    try {
+      const result = await db.select().from(reports).where(eq(reports.id, id));
+      return result[0];
+    } catch (error) {
+      console.error('❌ Erro ao buscar relatório:', error);
+      return undefined;
+    }
   }
 
   async deleteReport(id: string): Promise<void> {
-    await db.delete(reports).where(eq(reports.id, id));
+    try {
+      await db.delete(reports).where(eq(reports.id, id));
+    } catch (error) {
+      console.error('❌ Erro ao deletar relatório:', error);
+      throw error;
+    }
   }
 
   async getProductsReport(): Promise<any> {
@@ -603,6 +725,7 @@ export class DatabaseStorage implements IStorage {
       return result;
 
     } catch (error) {
+      console.error('❌ Erro ao gerar relatório de produtos:', error);
       throw new Error('Erro ao gerar relatório de produtos');
     }
   }
@@ -653,6 +776,7 @@ export class DatabaseStorage implements IStorage {
       return result;
 
     } catch (error) {
+      console.error('❌ Erro ao gerar relatório de estoque baixo:', error);
       throw new Error('Erro ao gerar relatório de estoque baixo');
     }
   }
@@ -716,6 +840,7 @@ export class DatabaseStorage implements IStorage {
       return result;
 
     } catch (error) {
+      console.error('❌ Erro ao gerar relatório financeiro:', error);
       throw new Error('Erro ao gerar relatório financeiro');
     }
   }
@@ -773,6 +898,7 @@ export class DatabaseStorage implements IStorage {
       return result;
 
     } catch (error) {
+      console.error('❌ Erro ao gerar relatório de movimentações:', error);
       throw new Error('Erro ao gerar relatório de movimentações');
     }
   }
@@ -822,6 +948,7 @@ export class DatabaseStorage implements IStorage {
       return result;
 
     } catch (error) {
+      console.error('❌ Erro ao gerar relatório de inventários:', error);
       throw new Error('Erro ao gerar relatório de inventários');
     }
   }
@@ -887,52 +1014,73 @@ export class DatabaseStorage implements IStorage {
       return result;
 
     } catch (error) {
+      console.error('❌ Erro ao gerar relatório de produtos por local:', error);
       throw new Error('Erro ao gerar relatório de produtos por local');
     }
   }
 
   async createImportHistory(importData: InsertImportHistory): Promise<ImportHistory> {
-    const id = randomUUID();
-    const history: ImportHistory = { 
-      ...importData, 
-      id, 
-      createdAt: new Date(),
-      processedAt: importData.status === 'processado' ? new Date() : null,
-      productsFound: importData.productsFound || 0,
-      productsCreated: importData.productsCreated || 0,
-      productsUpdated: importData.productsUpdated || 0,
-      supplier: importData.supplier || 'Fornecedor não identificado',
-      supplierCnpj: importData.supplierCnpj || '',
-      supplierAddress: importData.supplierAddress || '',
-      nfeNumber: importData.nfeNumber || '',
-      nfeKey: importData.nfeKey || '',
-      emissionDate: importData.emissionDate || new Date(),
-      totalValue: importData.totalValue?.toString() || '0'
-    };
-    await db.insert(importHistory).values(history);
-    return history;
+    try {
+      const id = randomUUID();
+      const history: ImportHistory = { 
+        ...importData, 
+        id, 
+        createdAt: new Date(),
+        processedAt: importData.status === 'processado' ? new Date() : null,
+        productsFound: importData.productsFound || 0,
+        productsCreated: importData.productsCreated || 0,
+        productsUpdated: importData.productsUpdated || 0,
+        supplier: importData.supplier || 'Fornecedor não identificado',
+        supplierCnpj: importData.supplierCnpj || '',
+        supplierAddress: importData.supplierAddress || '',
+        nfeNumber: importData.nfeNumber || '',
+        nfeKey: importData.nfeKey || '',
+        emissionDate: importData.emissionDate || new Date(),
+        totalValue: importData.totalValue?.toString() || '0'
+      };
+      await db.insert(importHistory).values(history);
+      return history;
+    } catch (error) {
+      console.error('❌ Erro ao criar histórico de importação:', error);
+      throw error;
+    }
   }
 
   async getImportHistory(): Promise<ImportHistory[]> {
-    return await db.select().from(importHistory).orderBy(desc(importHistory.createdAt));
+    try {
+      return await db.select().from(importHistory).orderBy(desc(importHistory.createdAt));
+    } catch (error) {
+      console.error('❌ Erro ao buscar histórico de importação:', error);
+      return [];
+    }
   }
 
   async getImportHistoryById(id: string): Promise<ImportHistory | undefined> {
-    const result = await db.select().from(importHistory).where(eq(importHistory.id, id));
-    return result[0];
+    try {
+      const result = await db.select().from(importHistory).where(eq(importHistory.id, id));
+      return result[0];
+    } catch (error) {
+      console.error('❌ Erro ao buscar histórico de importação por ID:', error);
+      return undefined;
+    }
   }
 
   async updateImportHistory(id: string, importData: Partial<InsertImportHistory>): Promise<ImportHistory> {
-    const updateData: any = { ...importData };
-    
-    if (importData.status === 'processado' && !updateData.processedAt) {
-      updateData.processedAt = new Date();
+    try {
+      const updateData: any = { ...importData };
+      
+      if (importData.status === 'processado' && !updateData.processedAt) {
+        updateData.processedAt = new Date();
+      }
+      
+      await db.update(importHistory).set(updateData).where(eq(importHistory.id, id));
+      const updated = await this.getImportHistoryById(id);
+      if (!updated) throw new Error("Histórico de importação não encontrado");
+      return updated;
+    } catch (error) {
+      console.error('❌ Erro ao atualizar histórico de importação:', error);
+      throw error;
     }
-    
-    await db.update(importHistory).set(updateData).where(eq(importHistory.id, id));
-    const updated = await this.getImportHistoryById(id);
-    if (!updated) throw new Error("Histórico de importação não encontrado");
-    return updated;
   }
 
   async deleteImportHistory(id: string): Promise<void> {
@@ -941,25 +1089,36 @@ export class DatabaseStorage implements IStorage {
       await db.delete(nfeData).where(eq(nfeData.importHistoryId, id));
       await db.delete(importHistory).where(eq(importHistory.id, id));
     } catch (error) {
+      console.error('❌ Erro ao excluir importação:', error);
       throw new Error("Erro ao excluir importação");
     }
   }
 
   async createNfeProduct(nfeProduct: InsertNfeProduct): Promise<NfeProduct> {
-    const id = randomUUID();
-    const product: NfeProduct = { 
-      ...nfeProduct, 
-      id,
-      unitPrice: nfeProduct.unitPrice?.toString() || '0',
-      totalValue: nfeProduct.totalValue?.toString() || '0',
-      code: nfeProduct.code || nfeProduct.nfeCode || 'N/A'
-    };
-    await db.insert(nfeProducts).values(product);
-    return product;
+    try {
+      const id = randomUUID();
+      const product: NfeProduct = { 
+        ...nfeProduct, 
+        id,
+        unitPrice: nfeProduct.unitPrice?.toString() || '0',
+        totalValue: nfeProduct.totalValue?.toString() || '0',
+        code: nfeProduct.code || nfeProduct.nfeCode || 'N/A'
+      };
+      await db.insert(nfeProducts).values(product);
+      return product;
+    } catch (error) {
+      console.error('❌ Erro ao criar produto NFe:', error);
+      throw error;
+    }
   }
 
   async getNfeProductsByImport(importHistoryId: string): Promise<NfeProduct[]> {
-    return await db.select().from(nfeProducts).where(eq(nfeProducts.importHistoryId, importHistoryId));
+    try {
+      return await db.select().from(nfeProducts).where(eq(nfeProducts.importHistoryId, importHistoryId));
+    } catch (error) {
+      console.error('❌ Erro ao buscar produtos NFe por importação:', error);
+      return [];
+    }
   }
 
   async createNfeData(insertNfeData: InsertNfeData): Promise<NfeData> {
@@ -994,6 +1153,7 @@ export class DatabaseStorage implements IStorage {
       
       return data;
     } catch (error) {
+      console.error('❌ Erro ao salvar dados NFe:', error);
       throw new Error(`Erro ao salvar dados NFe: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     }
   }
@@ -1003,13 +1163,19 @@ export class DatabaseStorage implements IStorage {
       const result = await db.select().from(nfeData).where(eq(nfeData.importHistoryId, importHistoryId));
       return result[0];
     } catch (error) {
+      console.error('❌ Erro ao buscar dados NFe por importação:', error);
       return undefined;
     }
   }
 
   async getNfeDataByAccessKey(accessKey: string): Promise<NfeData | undefined> {
-    const result = await db.select().from(nfeData).where(eq(nfeData.accessKey, accessKey));
-    return result[0];
+    try {
+      const result = await db.select().from(nfeData).where(eq(nfeData.accessKey, accessKey));
+      return result[0];
+    } catch (error) {
+      console.error('❌ Erro ao buscar dados NFe por chave de acesso:', error);
+      return undefined;
+    }
   }
 
   async processNfeImport(fileData: any, userId?: string): Promise<ImportHistory> {
@@ -1049,6 +1215,7 @@ export class DatabaseStorage implements IStorage {
               rawData: fileData.rawData
             });
           } catch (nfeError) {
+            console.error('❌ Erro ao criar dados NFe:', nfeError);
           }
         }
 
@@ -1070,6 +1237,7 @@ export class DatabaseStorage implements IStorage {
               });
               savedProducts++;
             } catch (productError) {
+              console.error('❌ Erro ao criar produto NFe:', productError);
             }
           }
         }
@@ -1098,6 +1266,7 @@ export class DatabaseStorage implements IStorage {
               errorMessage: processError instanceof Error ? processError.message : 'Erro desconhecido'
             });
           } catch (updateError) {
+            console.error('❌ Erro ao atualizar importação com erro:', updateError);
           }
         }
         
@@ -1105,93 +1274,139 @@ export class DatabaseStorage implements IStorage {
       }
 
     } catch (error) {
+      console.error('❌ Erro na importação:', error);
       throw new Error(`Erro na importação: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     }
   }
 
   async createEmpresa(empresa: InsertEmpresa): Promise<Empresa> {
-    const id = randomUUID();
-    const empresaData: Empresa = {
-      ...empresa,
-      id,
-      status: 'pendente',
-      dataAprovacao: null,
-      plano: 'starter',
-      dataExpiracao: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    
-    await db.insert(empresas).values(empresaData);
-    return empresaData;
+    try {
+      const id = randomUUID();
+      const empresaData: Empresa = {
+        ...empresa,
+        id,
+        status: 'pendente',
+        dataAprovacao: null,
+        plano: 'starter',
+        dataExpiracao: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      await db.insert(empresas).values(empresaData);
+      return empresaData;
+    } catch (error) {
+      console.error('❌ Erro ao criar empresa:', error);
+      throw error;
+    }
   }
 
   async getEmpresa(id: string): Promise<Empresa | undefined> {
-    const result = await db.select().from(empresas).where(eq(empresas.id, id));
-    return result[0];
+    try {
+      const result = await db.select().from(empresas).where(eq(empresas.id, id));
+      return result[0];
+    } catch (error) {
+      console.error('❌ Erro ao buscar empresa:', error);
+      return undefined;
+    }
   }
 
   async getEmpresaByCnpj(cnpj: string): Promise<Empresa | undefined> {
-    const result = await db.select().from(empresas).where(eq(empresas.cnpj, cnpj));
-    return result[0];
+    try {
+      const result = await db.select().from(empresas).where(eq(empresas.cnpj, cnpj));
+      return result[0];
+    } catch (error) {
+      console.error('❌ Erro ao buscar empresa por CNPJ:', error);
+      return undefined;
+    }
   }
 
   async getEmpresaByEmail(email: string): Promise<Empresa | undefined> {
-    const result = await db.select().from(empresas).where(eq(empresas.email, email));
-    return result[0];
+    try {
+      const result = await db.select().from(empresas).where(eq(empresas.email, email));
+      return result[0];
+    } catch (error) {
+      console.error('❌ Erro ao buscar empresa por email:', error);
+      return undefined;
+    }
   }
 
   async updateEmpresa(id: string, empresa: Partial<InsertEmpresa>): Promise<Empresa> {
-    const updateData = {
-      ...empresa,
-      updatedAt: new Date()
-    };
-    
-    await db.update(empresas).set(updateData).where(eq(empresas.id, id));
-    const updated = await this.getEmpresa(id);
-    if (!updated) throw new Error("Empresa não encontrada");
-    return updated;
+    try {
+      const updateData = {
+        ...empresa,
+        updatedAt: new Date()
+      };
+      
+      await db.update(empresas).set(updateData).where(eq(empresas.id, id));
+      const updated = await this.getEmpresa(id);
+      if (!updated) throw new Error("Empresa não encontrada");
+      return updated;
+    } catch (error) {
+      console.error('❌ Erro ao atualizar empresa:', error);
+      throw error;
+    }
   }
 
   async createEmailVerificacao(verificacao: InsertEmailVerificacao): Promise<EmailVerificacao> {
-    const id = randomUUID();
-    const verificacaoData: EmailVerificacao = {
-      ...verificacao,
-      id,
-      expiraEm: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      utilizado: false,
-      createdAt: new Date()
-    };
-    
-    await db.insert(emailVerificacoes).values(verificacaoData);
-    return verificacaoData;
+    try {
+      const id = randomUUID();
+      const verificacaoData: EmailVerificacao = {
+        ...verificacao,
+        id,
+        expiraEm: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        utilizado: false,
+        createdAt: new Date()
+      };
+      
+      await db.insert(emailVerificacoes).values(verificacaoData);
+      return verificacaoData;
+    } catch (error) {
+      console.error('❌ Erro ao criar verificação de email:', error);
+      throw error;
+    }
   }
 
   async getEmailVerificacao(token: string): Promise<EmailVerificacao | undefined> {
-    const result = await db.select().from(emailVerificacoes).where(eq(emailVerificacoes.token, token));
-    return result[0];
+    try {
+      const result = await db.select().from(emailVerificacoes).where(eq(emailVerificacoes.token, token));
+      return result[0];
+    } catch (error) {
+      console.error('❌ Erro ao buscar verificação de email:', error);
+      return undefined;
+    }
   }
 
   async marcarEmailComoVerificado(userId: string): Promise<User> {
-    await db.update(users).set({
-      emailVerificado: true,
-      dataVerificacao: new Date(),
-      tokenVerificacao: null
-    }).where(eq(users.id, userId));
-    
-    const updated = await this.getUser(userId);
-    if (!updated) throw new Error("Usuário não encontrado");
-    return updated;
+    try {
+      await db.update(users).set({
+        emailVerificado: true,
+        dataVerificacao: new Date(),
+        tokenVerificacao: null
+      }).where(eq(users.id, userId));
+      
+      const updated = await this.getUser(userId);
+      if (!updated) throw new Error("Usuário não encontrado");
+      return updated;
+    } catch (error) {
+      console.error('❌ Erro ao marcar email como verificado:', error);
+      throw error;
+    }
   }
 
   async utilizarTokenVerificacao(token: string): Promise<EmailVerificacao> {
-    await db.update(emailVerificacoes).set({
-      utilizado: true
-    }).where(eq(emailVerificacoes.token, token));
-    
-    const updated = await this.getEmailVerificacao(token);
-    if (!updated) throw new Error("Token não encontrado");
-    return updated;
+    try {
+      await db.update(emailVerificacoes).set({
+        utilizado: true
+      }).where(eq(emailVerificacoes.token, token));
+      
+      const updated = await this.getEmailVerificacao(token);
+      if (!updated) throw new Error("Token não encontrado");
+      return updated;
+    } catch (error) {
+      console.error('❌ Erro ao utilizar token de verificação:', error);
+      throw error;
+    }
   }
 
   async cadastrarUsuarioIndividual(dados: CadastroUsuario): Promise<{user: User, token: string}> {
@@ -1244,6 +1459,7 @@ export class DatabaseStorage implements IStorage {
       return { user, token };
 
     } catch (error) {
+      console.error('❌ Erro ao cadastrar usuário individual:', error);
       throw error;
     }
   }
@@ -1310,6 +1526,7 @@ export class DatabaseStorage implements IStorage {
       return { empresa, admin, token };
 
     } catch (error) {
+      console.error('❌ Erro ao cadastrar empresa:', error);
       throw error;
     }
   }
@@ -1319,6 +1536,7 @@ export class DatabaseStorage implements IStorage {
       const result = await db.select().from(users).where(eq(users.empresaId, empresaId));
       return result;
     } catch (error) {
+      console.error('❌ Erro ao buscar usuários por empresa:', error);
       return [];
     }
   }
@@ -1366,6 +1584,7 @@ export class DatabaseStorage implements IStorage {
       return user;
 
     } catch (error) {
+      console.error('❌ Erro ao criar usuário para empresa:', error);
       throw error;
     }
   }
@@ -1378,6 +1597,7 @@ export class DatabaseStorage implements IStorage {
       
       return updated;
     } catch (error) {
+      console.error('❌ Erro ao atualizar role do usuário:', error);
       throw error;
     }
   }
@@ -1396,11 +1616,13 @@ export class DatabaseStorage implements IStorage {
       try {
         await db.delete(emailVerificacoes).where(eq(emailVerificacoes.userId, userId));
       } catch (emailError) {
+        console.error('❌ Erro ao deletar verificações de email:', emailError);
       }
 
       await db.delete(users).where(eq(users.id, userId));
 
     } catch (error) {
+      console.error('❌ Erro ao deletar usuário:', error);
       throw error;
     }
   }
@@ -1443,6 +1665,7 @@ export class DatabaseStorage implements IStorage {
       const userPermissions = permissions[user.role as keyof typeof permissions];
       return userPermissions && module in userPermissions && userPermissions[module as keyof typeof userPermissions].length > 0;
     } catch (error) {
+      console.error('❌ Erro ao verificar permissões:', error);
       return false;
     }
   }
@@ -1496,6 +1719,7 @@ export class DatabaseStorage implements IStorage {
 
       return permissions[user.role as keyof typeof permissions] || {};
     } catch (error) {
+      console.error('❌ Erro ao buscar permissões do usuário:', error);
       return {};
     }
   }

@@ -6,34 +6,42 @@ export class EmailService {
 
   static initialize() {
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      console.log('⚠️  Email não configurado - EMAIL_USER e EMAIL_PASS não definidos');
       return;
     }
 
-    this.transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
+    try {
+      this.transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS,
+        },
+      });
 
-    this.transporter.verify((error) => {
-      if (error) {
-        // Erro na configuração de email
-      }
-    });
+      this.transporter.verify((error) => {
+        if (error) {
+          console.error('❌ Erro na configuração de email:', error);
+        } else {
+          console.log('✅ Serviço de email configurado com sucesso');
+        }
+      });
+    } catch (error) {
+      console.error('❌ Erro ao inicializar serviço de email:', error);
+    }
   }
 
   static async enviarEmailVerificacao(email: string, nome: string, token: string): Promise<boolean> {
     try {
       if (!this.transporter) {
+        console.log('⚠️  Serviço de email não disponível - email não enviado');
         return false;
       }
 
-      const verificationUrl = `${process.env.APP_URL}/verificar-email?token=${token}`;
+      const verificationUrl = `${process.env.APP_URL || 'http://localhost:5000'}/verificar-email?token=${token}`;
       
       const mailOptions = {
-        from: process.env.EMAIL_FROM,
+        from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
         to: email,
         subject: 'Verifique seu email - StockMaster',
         html: `
@@ -143,16 +151,23 @@ export class EmailService {
       };
 
       await this.transporter.sendMail(mailOptions);
+      console.log(`✅ Email de verificação enviado para: ${email}`);
       return true;
     } catch (error) {
+      console.error('❌ Erro ao enviar email de verificação:', error);
       return false;
     }
   }
 
   static async enviarEmailBoasVindas(email: string, nome: string): Promise<boolean> {
     try {
+      if (!this.transporter) {
+        console.log('⚠️  Serviço de email não disponível - email não enviado');
+        return false;
+      }
+
       const mailOptions = {
-        from: process.env.EMAIL_FROM,
+        from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
         to: email,
         subject: 'Bem-vindo ao StockMaster! Sua conta foi ativada',
         html: `
@@ -205,13 +220,13 @@ export class EmailService {
                 </div>
                 
                 <div style="text-align: center; margin: 30px 0;">
-                  <a href="${process.env.APP_URL}" class="button">
+                  <a href="${process.env.APP_URL || 'http://localhost:5000'}" class="button">
                     Acessar Minha Conta
                   </a>
                 </div>
                 
                 <p style="color: #777; font-size: 14px; border-top: 1px solid #eee; padding-top: 20px;">
-                  Precisa de ajuda? Consulte nossa <a href="${process.env.APP_URL}/ajuda" style="color: #667eea;">documentação</a> 
+                  Precisa de ajuda? Consulte nossa <a href="${process.env.APP_URL || 'http://localhost:5000'}/ajuda" style="color: #667eea;">documentação</a> 
                   ou entre em contato com nosso suporte.
                 </p>
               </div>
@@ -222,8 +237,10 @@ export class EmailService {
       };
 
       await this.transporter.sendMail(mailOptions);
+      console.log(`✅ Email de boas-vindas enviado para: ${email}`);
       return true;
     } catch (error) {
+      console.error('❌ Erro ao enviar email de boas-vindas:', error);
       return false;
     }
   }

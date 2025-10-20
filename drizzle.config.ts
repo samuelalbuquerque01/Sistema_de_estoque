@@ -1,15 +1,12 @@
-// drizzle.config.ts
+// drizzle.config.ts - VERSÃO CORRIGIDA
 import { defineConfig } from "drizzle-kit";
-
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL, ensure the database is provisioned");
-}
 
 export default defineConfig({
   out: "./migrations",
   schema: "./shared/schema.ts",
-  dialect: "postgresql", // DEVE SER postgresql
+  dialect: "postgresql",
   dbCredentials: {
-    url: process.env.DATABASE_URL,
+    url: process.env.DATABASE_URL!,
+    ssl: true // ✅ ADICIONE SSL PARA RENDER
   },
 });

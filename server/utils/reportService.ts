@@ -87,6 +87,7 @@ export class ReportService {
       return buffer;
 
     } catch (error) {
+      console.error('❌ Erro ao gerar Excel, usando fallback:', error);
       return this.generateFallbackExcel(data, reportType);
     }
   }

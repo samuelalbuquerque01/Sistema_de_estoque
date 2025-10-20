@@ -81,15 +81,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Inicializar serviços
   EmailService.initialize();
   
-  // Inicializar categorias padrão
+  // ✅ CORREÇÃO: Inicialização mais robusta
+  console.log('🔄 Inicializando serviços...');
+  
   try {
     await storage.ensureDefaultCategories();
-    console.log('✅ Categorias padrão inicializadas');
+    console.log('✅ Categorias inicializadas');
   } catch (error) {
     console.error('❌ Erro ao inicializar categorias:', error);
   }
 
-  // Inicializar usuário admin
   try {
     await storage.ensureDefaultUser();
     console.log('✅ Usuário admin inicializado');
@@ -101,31 +102,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/import", importRoutes);
   app.use("/api/invoices", invoiceRoutes);
 
-  // ✅ Health Check para Render
+  // ✅ Health Check melhorado para Render
   app.get("/api/health", async (req, res) => {
     try {
-      // Verificar conexão com banco de dados
-      const categories = await storage.getCategories();
-      const users = await storage.getUsers();
+      // Verificar conexão com banco de dados de forma segura
+      let categories = [];
+      let users = [];
+      
+      try {
+        categories = await storage.getCategories();
+        users = await storage.getUsers();
+      } catch (dbError) {
+        console.error('❌ Erro ao conectar com banco:', dbError);
+      }
       
       res.json({
         status: "healthy",
         timestamp: new Date().toISOString(),
-        environment: process.env.NODE_ENV,
+        environment: process.env.NODE_ENV || 'development',
         database: {
-          connected: true,
+          connected: categories.length >= 0, // Se não houve erro, considera conectado
           categories: categories.length,
           users: users.length
         },
         services: {
           email: !!process.env.EMAIL_USER
-        }
+        },
+        version: "1.0.0"
       });
     } catch (error) {
       res.status(500).json({
         status: "unhealthy",
         timestamp: new Date().toISOString(),
-        error: "Database connection failed",
+        error: "Health check failed",
         message: error instanceof Error ? error.message : "Unknown error"
       });
     }

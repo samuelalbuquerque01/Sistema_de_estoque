@@ -182,7 +182,7 @@ importRoutes.post('/xml', upload.single('file'), async (req, res) => {
     } catch (parseError) {
       return res.status(400).json({ 
         error: 'Erro ao processar XML',
-        details: parseError.message
+        details: parseError instanceof Error ? parseError.message : 'Erro desconhecido'
       });
     }
 
@@ -201,7 +201,9 @@ importRoutes.post('/xml', upload.single('file'), async (req, res) => {
         rawData: nfeData
       });
 
+      console.log(`✅ Importação processada: ${validatedData.products.length} produtos`);
     } catch (dbError) {
+      console.error('❌ Erro ao salvar no banco:', dbError);
       // Continuar mesmo com erro no banco
     }
 
