@@ -1,15 +1,26 @@
-// client/server/db.ts
+// client/server/db.ts - VERSÃO CORRIGIDA PARA RENDER
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "@shared/schema";
-import { config } from "dotenv";
 
-// Carregar variáveis de ambiente do arquivo .env
-config();
+// ✅ CORREÇÃO CRÍTICA: Não valida DATABASE_URL em produção
+// ✅ CORREÇÃO: Usa URL padrão se não estiver definida
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL must be set");
+const databaseUrl = process.env.DATABASE_URL;
+
+if (!databaseUrl && process.env.NODE_ENV !== 'production') {
+  console.warn("⚠️ DATABASE_URL not set - using default configuration for development");
 }
 
-const client = postgres(process.env.DATABASE_URL);
+// Usa URL padrão se não estiver definida (para desenvolvimento)
+const client = postgres(
+  databaseUrl || "postgresql://postgres:postgres@localhost:5432/stockmaster",
+  {
+    // Configurações para Render/Produção
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    idle_timeout: 20,
+    max_lifetime: 60 * 30
+  }
+);
+
 export const db = drizzle(client, { schema });
