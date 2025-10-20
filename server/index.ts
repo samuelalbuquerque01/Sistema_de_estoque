@@ -1,4 +1,4 @@
-// server/index.ts - Versão simplificada
+// server/index.ts - VERSÃO COMPLETA CORRIGIDA
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -7,38 +7,26 @@ console.log('🚀 Iniciando StockMaster Server...');
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import { registerRoutes } from './routes';
 
 const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+
+// Middlewares PRIMEIRO
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cors());
 app.use(helmet());
 
-// Health Check
-app.get('/api/health', async (req, res) => {
-  res.json({
-    status: "healthy",
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    version: "1.0.0"
-  });
-});
+// Registrar todas as rotas da API ANTES do static
+console.log('📡 Registrando rotas da API...');
+registerRoutes(app);
 
-// Rota principal da API
-app.get('/api', (req, res) => {
-  res.json({
-    message: "StockMaster API is running",
-    version: "1.0.0",
-    environment: process.env.NODE_ENV,
-    timestamp: new Date().toISOString()
-  });
-});
-
-// Servir arquivos estáticos do Vite
+// Servir arquivos estáticos do Vite (DEPOIS das rotas da API)
 app.use(express.static('dist/public'));
 
-// Rota fallback para SPA
+// Rota fallback para SPA (DEVE SER A ÚLTIMA)
 app.get('*', (req, res) => {
+  console.log('📄 Servindo SPA para rota:', req.path);
   res.sendFile(process.cwd() + '/dist/public/index.html');
 });
 
@@ -49,4 +37,7 @@ app.listen(port, host, () => {
   console.log('🚀 StockMaster server running on http://' + host + ':' + port);
   console.log('📊 Environment:', process.env.NODE_ENV);
   console.log('🌐 Health check available at /api/health');
+  console.log('📁 Static files from:', process.cwd() + '/dist/public');
 });
+
+export default app;

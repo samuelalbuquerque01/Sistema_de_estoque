@@ -78,31 +78,9 @@ function sendXmlResponse(res: any, nfeData: any, importItem: any) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Inicializar serviços
-  EmailService.initialize();
-  
-  // ✅ CORREÇÃO: Inicialização mais robusta
   console.log('🔄 Inicializando serviços...');
   
-  try {
-    await storage.ensureDefaultCategories();
-    console.log('✅ Categorias inicializadas');
-  } catch (error) {
-    console.error('❌ Erro ao inicializar categorias:', error);
-  }
-
-  try {
-    await storage.ensureDefaultUser();
-    console.log('✅ Usuário admin inicializado');
-  } catch (error) {
-    console.error('❌ Erro ao inicializar usuário admin:', error);
-  }
-  
-  // Rotas de importação e notas fiscais
-  app.use("/api/import", importRoutes);
-  app.use("/api/invoices", invoiceRoutes);
-
-  // ✅ Health Check melhorado para Render
+  // ✅ Health Check - DEVE SER A PRIMEIRA ROTA
   app.get("/api/health", async (req, res) => {
     try {
       // Verificar conexão com banco de dados de forma segura
@@ -149,6 +127,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       timestamp: new Date().toISOString()
     });
   });
+
+  // Inicializar serviços
+  EmailService.initialize();
+  
+  try {
+    await storage.ensureDefaultCategories();
+    console.log('✅ Categorias inicializadas');
+  } catch (error) {
+    console.error('❌ Erro ao inicializar categorias:', error);
+  }
+
+  try {
+    await storage.ensureDefaultUser();
+    console.log('✅ Usuário admin inicializado');
+  } catch (error) {
+    console.error('❌ Erro ao inicializar usuário admin:', error);
+  }
+  
+  // Rotas de importação e notas fiscais
+  app.use("/api/import", importRoutes);
+  app.use("/api/invoices", invoiceRoutes);
 
   // Rotas de inicialização
   app.post("/api/init/categories", async (req, res) => {
