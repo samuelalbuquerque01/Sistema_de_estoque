@@ -7,6 +7,7 @@
     "dev": "cross-env NODE_ENV=development tsx server/index.ts",
     "build": "vite build && npm run build:server",
     "build:server": "node build-server.js",
+    "preview": "vite preview",
     "start": "cross-env NODE_ENV=production node dist/index.js",
     "db:push": "drizzle-kit push",
     "migrate": "tsx server/migrate.ts"
