@@ -1,3 +1,12 @@
+// ✅ CORREÇÃO CRÍTICA PARA RENDER
+import dotenv from 'dotenv';
+
+// Só carrega .env em desenvolvimento - CRÍTICO para Render
+if (process.env.NODE_ENV !== 'production') {
+  dotenv.config();
+}
+
+// SEU CÓDIGO ATUAL (já está correto)
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
