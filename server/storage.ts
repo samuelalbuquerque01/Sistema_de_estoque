@@ -1,4 +1,4 @@
-// server/storage.ts - VERSÃO LIMPA
+// server/storage.ts - VERSÃO SIMPLIFICADA PARA DEPLOY
 import { 
   type User, type InsertUser, type Product, type InsertProduct, 
   type Category, type InsertCategory, type Location, type InsertLocation, 
@@ -238,16 +238,22 @@ export class DatabaseStorage implements IStorage {
   async createUser(insertUser: InsertUser): Promise<User> {
     try {
       const id = randomUUID();
-      const user: User = { 
-        ...insertUser, 
+      const userData = {
         id,
+        username: insertUser.username,
+        password: insertUser.password,
+        name: insertUser.name,
+        email: insertUser.email,
+        tipo: insertUser.tipo,
+        role: insertUser.role,
+        empresaId: insertUser.empresaId || null,
         emailVerificado: insertUser.emailVerificado || false,
         tokenVerificacao: null,
         dataVerificacao: null,
         createdAt: new Date()
       };
       
-      await db.insert(users).values(user);
+      await db.insert(users).values(userData);
       
       const createdUser = await this.getUser(id);
       if (!createdUser) {
@@ -284,9 +290,16 @@ export class DatabaseStorage implements IStorage {
     try {
       const id = randomUUID();
       const productData = {
-        ...insertProduct,
         id,
-        unitPrice: insertProduct.unitPrice?.toString() || '0'
+        code: insertProduct.code,
+        name: insertProduct.name,
+        categoryId: insertProduct.categoryId,
+        locationId: insertProduct.locationId,
+        quantity: insertProduct.quantity,
+        minQuantity: insertProduct.minQuantity,
+        unitPrice: insertProduct.unitPrice,
+        description: insertProduct.description,
+        createdAt: new Date()
       };
       await db.insert(products).values(productData);
       const result = await db.select().from(products).where(eq(products.id, id));
@@ -300,10 +313,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateProduct(id: string, productData: Partial<InsertProduct>): Promise<Product> {
     try {
-      const updateData = { ...productData };
-      if (updateData.unitPrice !== undefined) {
-        updateData.unitPrice = updateData.unitPrice.toString();
-      }
+      const updateData: any = { ...productData };
       await db.update(products).set(updateData).where(eq(products.id, id));
       const updated = await this.getProduct(id);
       if (!updated) throw new Error("Product not found");
@@ -410,9 +420,14 @@ export class DatabaseStorage implements IStorage {
   async createCategory(insertCategory: InsertCategory): Promise<Category> {
     try {
       const id = randomUUID();
-      const category: Category = { ...insertCategory, id };
-      await db.insert(categories).values(category);
-      return category;
+      const categoryData = { 
+        id, 
+        name: insertCategory.name, 
+        type: insertCategory.type, 
+        description: insertCategory.description 
+      };
+      await db.insert(categories).values(categoryData);
+      return categoryData as Category;
     } catch (error) {
       console.error('❌ Erro ao criar categoria:', error);
       throw error;
@@ -441,9 +456,13 @@ export class DatabaseStorage implements IStorage {
   async createLocation(insertLocation: InsertLocation): Promise<Location> {
     try {
       const id = randomUUID();
-      const location: Location = { ...insertLocation, id };
-      await db.insert(locations).values(location);
-      return location;
+      const locationData = { 
+        id, 
+        name: insertLocation.name, 
+        description: insertLocation.description 
+      };
+      await db.insert(locations).values(locationData);
+      return locationData as Location;
     } catch (error) {
       console.error('❌ Erro ao criar localização:', error);
       throw error;
@@ -505,9 +524,17 @@ export class DatabaseStorage implements IStorage {
   async createMovement(insertMovement: InsertMovement): Promise<Movement> {
     try {
       const id = randomUUID();
-      const movement: Movement = { ...insertMovement, id, createdAt: new Date() };
-      await db.insert(movements).values(movement);
-      return movement;
+      const movementData = {
+        id,
+        productId: insertMovement.productId,
+        type: insertMovement.type,
+        quantity: insertMovement.quantity,
+        userId: insertMovement.userId,
+        notes: insertMovement.notes,
+        createdAt: new Date()
+      };
+      await db.insert(movements).values(movementData);
+      return movementData as Movement;
     } catch (error) {
       console.error('❌ Erro ao criar movimentação:', error);
       throw error;
@@ -549,7 +576,14 @@ export class DatabaseStorage implements IStorage {
       const id = randomUUID();
       let userId = insertInventory.userId;
       if (!userId) userId = await this.ensureDefaultUser();
-      const inventoryData = { ...insertInventory, id, userId, createdAt: new Date(), status: 'em_andamento' as const };
+      const inventoryData = { 
+        id, 
+        name: insertInventory.name,
+        userId: userId, 
+        createdAt: new Date(), 
+        status: 'em_andamento' as const,
+        finishedAt: null
+      };
       await db.insert(inventories).values(inventoryData);
       const result = await db.select().from(inventories).where(eq(inventories.id, id));
       if (!result[0]) throw new Error("Inventário não encontrado após criação");
@@ -616,13 +650,25 @@ export class DatabaseStorage implements IStorage {
       const existingCount = await db.select().from(inventoryCounts).where(and(eq(inventoryCounts.inventoryId, insertCount.inventoryId), eq(inventoryCounts.productId, insertCount.productId)));
       if (existingCount.length > 0) {
         const id = existingCount[0].id;
-        await db.update(inventoryCounts).set({ countedQuantity: insertCount.countedQuantity, difference: insertCount.difference, notes: insertCount.notes }).where(eq(inventoryCounts.id, id));
+        await db.update(inventoryCounts).set({ 
+          countedQuantity: insertCount.countedQuantity, 
+          difference: insertCount.difference, 
+          notes: insertCount.notes 
+        }).where(eq(inventoryCounts.id, id));
         const updated = await db.select().from(inventoryCounts).where(eq(inventoryCounts.id, id));
         return updated[0];
       } else {
         const id = randomUUID();
-        const count: InventoryCount = { ...insertCount, id, createdAt: new Date() };
-        await db.insert(inventoryCounts).values(count);
+        const countData = { 
+          id, 
+          inventoryId: insertCount.inventoryId,
+          productId: insertCount.productId,
+          countedQuantity: insertCount.countedQuantity,
+          difference: insertCount.difference,
+          notes: insertCount.notes,
+          createdAt: new Date()
+        };
+        await db.insert(inventoryCounts).values(countData);
         const result = await db.select().from(inventoryCounts).where(eq(inventoryCounts.id, id));
         return result[0];
       }
@@ -635,14 +681,19 @@ export class DatabaseStorage implements IStorage {
   async createReport(insertReport: InsertReport): Promise<Report> {
     try {
       const id = randomUUID();
-      const report: Report = { 
-        ...insertReport, 
+      const reportData = { 
         id, 
-        createdAt: new Date(),
-        fileSize: 0
+        name: insertReport.name,
+        type: insertReport.type,
+        format: insertReport.format,
+        filters: insertReport.filters || {},
+        generatedBy: insertReport.generatedBy,
+        filePath: insertReport.filePath,
+        fileSize: 0,
+        createdAt: new Date()
       };
-      await db.insert(reports).values(report);
-      return report;
+      await db.insert(reports).values(reportData);
+      return reportData as Report;
     } catch (error) {
       console.error('❌ Erro ao criar relatório:', error);
       throw error;
@@ -1022,11 +1073,10 @@ export class DatabaseStorage implements IStorage {
   async createImportHistory(importData: InsertImportHistory): Promise<ImportHistory> {
     try {
       const id = randomUUID();
-      const history: ImportHistory = { 
-        ...importData, 
+      const historyData = { 
         id, 
-        createdAt: new Date(),
-        processedAt: importData.status === 'processado' ? new Date() : null,
+        fileName: importData.fileName,
+        status: importData.status,
         productsFound: importData.productsFound || 0,
         productsCreated: importData.productsCreated || 0,
         productsUpdated: importData.productsUpdated || 0,
@@ -1036,10 +1086,14 @@ export class DatabaseStorage implements IStorage {
         nfeNumber: importData.nfeNumber || '',
         nfeKey: importData.nfeKey || '',
         emissionDate: importData.emissionDate || new Date(),
-        totalValue: importData.totalValue?.toString() || '0'
+        totalValue: importData.totalValue?.toString() || '0',
+        userId: importData.userId,
+        processedAt: importData.processedAt,
+        errorMessage: importData.errorMessage,
+        createdAt: new Date()
       };
-      await db.insert(importHistory).values(history);
-      return history;
+      await db.insert(importHistory).values(historyData);
+      return historyData as ImportHistory;
     } catch (error) {
       console.error('❌ Erro ao criar histórico de importação:', error);
       throw error;
@@ -1097,15 +1151,21 @@ export class DatabaseStorage implements IStorage {
   async createNfeProduct(nfeProduct: InsertNfeProduct): Promise<NfeProduct> {
     try {
       const id = randomUUID();
-      const product: NfeProduct = { 
-        ...nfeProduct, 
+      const productData = { 
         id,
+        importHistoryId: nfeProduct.importHistoryId,
+        productId: nfeProduct.productId,
+        nfeCode: nfeProduct.nfeCode,
+        code: nfeProduct.code || nfeProduct.nfeCode || 'N/A',
+        name: nfeProduct.name,
+        quantity: nfeProduct.quantity,
         unitPrice: nfeProduct.unitPrice?.toString() || '0',
+        unit: nfeProduct.unit,
         totalValue: nfeProduct.totalValue?.toString() || '0',
-        code: nfeProduct.code || nfeProduct.nfeCode || 'N/A'
+        nfeData: nfeProduct.nfeData || {}
       };
-      await db.insert(nfeProducts).values(product);
-      return product;
+      await db.insert(nfeProducts).values(productData);
+      return productData as NfeProduct;
     } catch (error) {
       console.error('❌ Erro ao criar produto NFe:', error);
       throw error;
@@ -1135,14 +1195,17 @@ export class DatabaseStorage implements IStorage {
         emissionDate = new Date();
       }
 
-      const data: NfeData = { 
-        ...insertNfeData, 
+      const data = { 
         id, 
-        createdAt: new Date(),
+        importHistoryId: insertNfeData.importHistoryId,
+        accessKey: insertNfeData.accessKey,
+        documentNumber: insertNfeData.documentNumber,
+        supplier: insertNfeData.supplier || {},
         emissionDate: emissionDate,
         totalValue: insertNfeData.totalValue?.toString() || '0',
         xmlContent: insertNfeData.xmlContent || '',
-        rawData: insertNfeData.rawData || {}
+        rawData: insertNfeData.rawData || {},
+        createdAt: new Date()
       };
 
       if (!data.importHistoryId) {
@@ -1151,7 +1214,7 @@ export class DatabaseStorage implements IStorage {
 
       await db.insert(nfeData).values(data);
       
-      return data;
+      return data as NfeData;
     } catch (error) {
       console.error('❌ Erro ao salvar dados NFe:', error);
       throw new Error(`Erro ao salvar dados NFe: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
@@ -1282,9 +1345,19 @@ export class DatabaseStorage implements IStorage {
   async createEmpresa(empresa: InsertEmpresa): Promise<Empresa> {
     try {
       const id = randomUUID();
-      const empresaData: Empresa = {
-        ...empresa,
+      const empresaData = {
         id,
+        nome: empresa.nome,
+        cnpj: empresa.cnpj,
+        email: empresa.email,
+        telefone: empresa.telefone || null,
+        website: empresa.website || null,
+        cep: empresa.cep || null,
+        logradouro: empresa.logradouro || null,
+        numero: empresa.numero || null,
+        complemento: empresa.complemento || null,
+        cidade: empresa.cidade || null,
+        estado: empresa.estado || null,
         status: 'pendente',
         dataAprovacao: null,
         plano: 'starter',
@@ -1294,7 +1367,7 @@ export class DatabaseStorage implements IStorage {
       };
       
       await db.insert(empresas).values(empresaData);
-      return empresaData;
+      return empresaData as Empresa;
     } catch (error) {
       console.error('❌ Erro ao criar empresa:', error);
       throw error;
@@ -1351,16 +1424,19 @@ export class DatabaseStorage implements IStorage {
   async createEmailVerificacao(verificacao: InsertEmailVerificacao): Promise<EmailVerificacao> {
     try {
       const id = randomUUID();
-      const verificacaoData: EmailVerificacao = {
-        ...verificacao,
+      const verificacaoData = {
         id,
+        userId: verificacao.userId,
+        email: verificacao.email,
+        token: verificacao.token,
+        tipo: verificacao.tipo,
         expiraEm: new Date(Date.now() + 24 * 60 * 60 * 1000),
         utilizado: false,
         createdAt: new Date()
       };
       
       await db.insert(emailVerificacoes).values(verificacaoData);
-      return verificacaoData;
+      return verificacaoData as EmailVerificacao;
     } catch (error) {
       console.error('❌ Erro ao criar verificação de email:', error);
       throw error;

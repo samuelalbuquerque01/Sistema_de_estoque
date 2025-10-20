@@ -199,7 +199,7 @@ export async function migrate() {
     console.log('📦 Inserindo dados iniciais...');
     
     // Categorias padrão
-    const categories = [
+    const categoriesData = [
       ['limpeza', 'Produtos de Limpeza', 'limpeza', 'Produtos para limpeza e higienização'],
       ['ferramenta', 'Ferramentas', 'ferramenta', 'Ferramentas manuais e elétricas'],
       ['insumo', 'Insumos', 'insumo', 'Matérias-primas e insumos para produção'],
@@ -208,7 +208,7 @@ export async function migrate() {
       ['outros', 'Outros', 'outros', 'Outros tipos de produtos']
     ];
 
-    for (const category of categories) {
+    for (const category of categoriesData) {
       try {
         await db.execute(
           `INSERT INTO categories (id, name, type, description) 

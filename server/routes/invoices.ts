@@ -1,31 +1,13 @@
-// server/routes/invoices.ts - VERSÃO COM SEFAZ REAL
+// server/routes/invoices.ts - VERSÃO CORRIGIDA
 import { Router } from "express";
 import { z } from "zod";
-import axios from "axios";
+import { storage } from "../storage";
 
 const invoiceRoutes = Router();
 
 const DownloadRequestSchema = z.object({
   nfeKey: z.string().length(44, "Chave de acesso deve ter 44 caracteres")
 });
-
-const downloadFromRealSefaz = async (nfeKey: string): Promise<Buffer> => {
-  try {
-    const uf = nfeKey.substring(0, 2);
-    const sefazUrls: { [key: string]: string } = {
-      '35': 'https://nfe.fazenda.sp.gov.br/ws/nfeautorizacao.asmx',
-      '41': 'https://homologacao.nfe.fazenda.pr.gov.br/services/NFeAutorizacao4',
-    };
-
-    const sefazUrl = sefazUrls[uf] || 'https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx';
-    
-    const mockPdf = await generateRealisticPdf(nfeKey);
-    return mockPdf;
-
-  } catch (error) {
-    throw new Error('Serviço SEFAZ indisponível no momento');
-  }
-};
 
 const generateRealisticPdf = async (nfeKey: string): Promise<Buffer> => {
   const pdfContent = `
@@ -96,18 +78,12 @@ invoiceRoutes.post('/download', async (req, res) => {
 
     let nfeData;
     try {
-      nfeData = await req.storage.getNfeDataByAccessKey(nfeKey);
+      nfeData = await storage.getNfeDataByAccessKey(nfeKey);
     } catch (dbError) {
       // NFe não encontrada no banco
     }
 
-    let fileBuffer: Buffer;
-    
-    try {
-      fileBuffer = await downloadFromRealSefaz(nfeKey);
-    } catch (sefazError) {
-      fileBuffer = await generateRealisticPdf(nfeKey);
-    }
+    const fileBuffer = await generateRealisticPdf(nfeKey);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="nota_fiscal_${nfeKey}.pdf"`);

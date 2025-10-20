@@ -27,7 +27,6 @@ export class ReportGenerator {
       data: products.map(product => ({
         código: product.code,
         nome: product.name,
-        tipo: product.type,
         categoria: product.categoryId,
         quantidade: product.quantity,
         estoque_mínimo: product.minQuantity,
@@ -62,7 +61,7 @@ export class ReportGenerator {
       data: lowStockProducts.map(product => ({
         código: product.code,
         nome: product.name,
-        tipo: product.type,
+        categoria: product.categoryId,
         quantidade_atual: product.quantity,
         estoque_mínimo: product.minQuantity,
         diferença: product.minQuantity - product.quantity,
@@ -80,17 +79,17 @@ export class ReportGenerator {
       return sum + (price * product.quantity);
     }, 0);
 
-    const valueByType = products.reduce((acc, product) => {
+    const valueByCategory = products.reduce((acc, product) => {
       const price = parseFloat(product.unitPrice?.toString() || '0');
       const value = price * product.quantity;
-      const type = product.type || 'Sem Tipo';
+      const category = product.categoryId || 'Sem Categoria';
       
-      if (!acc[type]) {
-        acc[type] = { totalValue: 0, productCount: 0 };
+      if (!acc[category]) {
+        acc[category] = { totalValue: 0, productCount: 0 };
       }
       
-      acc[type].totalValue += value;
-      acc[type].productCount += 1;
+      acc[category].totalValue += value;
+      acc[category].productCount += 1;
       
       return acc;
     }, {} as Record<string, { totalValue: number; productCount: number }>);
@@ -99,7 +98,7 @@ export class ReportGenerator {
       .map(product => ({
         nome: product.name,
         código: product.code,
-        tipo: product.type,
+        categoria: product.categoryId,
         valor_total: parseFloat(product.unitPrice?.toString() || '0') * product.quantity,
         quantidade: product.quantity,
         preço_unitário: parseFloat(product.unitPrice?.toString() || '0')
@@ -116,8 +115,8 @@ export class ReportGenerator {
         valor_médio_por_produto: products.length > 0 ? totalValue / products.length : 0,
         investimento_total: totalValue
       },
-      data: Object.entries(valueByType).map(([type, data]) => ({
-        categoria: type,
+      data: Object.entries(valueByCategory).map(([category, data]) => ({
+        categoria: category,
         valor_total: data.totalValue,
         quantidade_produtos: data.productCount,
         percentual: (data.totalValue / totalValue) * 100,

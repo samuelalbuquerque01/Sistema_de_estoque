@@ -1,29 +1,27 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": "./",
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "strict": false,
+    "allowImportingTsExtensions": true,
+    "noEmit": false,
+    "jsx": "react-jsx",
+    "strict": true,
     "skipLibCheck": true,
-    "resolveJsonModule": true,
-    "declaration": false,
-    "sourceMap": false,
-    "removeComments": true
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "dist",
+    "rootDir": "."
   },
   "include": [
     "server/**/*",
     "shared/**/*"
   ],
   "exclude": [
-    "node_modules",
+    "client/**/*",
     "dist",
-    "client",
-    "src"
+    "node_modules"
   ]
 }

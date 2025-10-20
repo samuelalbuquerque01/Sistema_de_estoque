@@ -27,6 +27,7 @@ export const products = pgTable("products", {
   minQuantity: integer("min_quantity").notNull().default(0),
   unitPrice: text("unit_price"),
   description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const movements = pgTable("movements", {
@@ -167,7 +168,7 @@ export const nfeProducts = pgTable("nfe_products", {
 // 🔥 SCHEMAS DE INSERÇÃO - CORRIGIDOS
 export const insertCategorySchema = createInsertSchema(categories, {
   name: z.string().min(1, "Nome é obrigatório"),
-  type: z.enum(["limpeza", "ferramenta", "insumo", "equipamento", "outros"]),
+  type: z.string().min(1, "Tipo é obrigatório"),
 }).omit({ id: true });
 
 export const insertLocationSchema = createInsertSchema(locations, {
@@ -182,7 +183,7 @@ export const insertProductSchema = createInsertSchema(products, {
   quantity: z.number().int().min(0, "Quantidade deve ser maior ou igual a 0"),
   minQuantity: z.number().int().min(0, "Estoque mínimo deve ser maior ou igual a 0"),
   unitPrice: z.string().min(1, "Preço unitário é obrigatório"),
-}).omit({ id: true });
+}).omit({ id: true, createdAt: true });
 
 export const insertMovementSchema = createInsertSchema(movements, {
   type: z.enum(["entrada", "saida", "ajuste"]),
@@ -213,34 +214,30 @@ export const insertUserSchema = createInsertSchema(users, {
 });
 
 export const insertReportSchema = createInsertSchema(reports, {
-  filters: z.any().optional(),
+  name: z.string().min(1, "Nome é obrigatório"),
+  type: z.string().min(1, "Tipo é obrigatório"),
+  format: z.string().min(1, "Formato é obrigatório"),
 }).omit({ id: true, createdAt: true, fileSize: true });
 
 export const insertImportHistorySchema = createInsertSchema(importHistory, {
-  userId: z.string().optional().nullable(),
-  processedAt: z.date().optional().nullable(),
-  errorMessage: z.string().optional().nullable(),
+  fileName: z.string().min(1, "Nome do arquivo é obrigatório"),
+  status: z.string().min(1, "Status é obrigatório"),
 }).omit({ id: true, createdAt: true });
 
 export const insertNfeDataSchema = createInsertSchema(nfeData, {
-  supplier: z.any().optional(),
-  rawData: z.any().optional(),
+  accessKey: z.string().min(1, "Chave de acesso é obrigatória"),
+  emissionDate: z.date(),
 }).omit({ id: true, createdAt: true });
 
 export const insertNfeProductSchema = createInsertSchema(nfeProducts, {
-  productId: z.string().optional().nullable(),
-  nfeData: z.any().optional(),
+  name: z.string().min(1, "Nome é obrigatório"),
+  quantity: z.number().int().min(1, "Quantidade deve ser maior que 0"),
 }).omit({ id: true });
 
 export const insertEmpresaSchema = createInsertSchema(empresas, {
-  telefone: z.string().optional().nullable(),
-  website: z.string().optional().nullable(),
-  cep: z.string().optional().nullable(),
-  logradouro: z.string().optional().nullable(),
-  numero: z.string().optional().nullable(),
-  complemento: z.string().optional().nullable(),
-  cidade: z.string().optional().nullable(),
-  estado: z.string().optional().nullable(),
+  nome: z.string().min(1, "Nome é obrigatório"),
+  cnpj: z.string().min(14, "CNPJ é obrigatório"),
+  email: z.string().email("Email inválido"),
 }).omit({ 
   id: true, 
   createdAt: true, 
@@ -252,8 +249,11 @@ export const insertEmpresaSchema = createInsertSchema(empresas, {
 });
 
 export const insertEmailVerificacaoSchema = createInsertSchema(emailVerificacoes, {
-  userId: z.string().optional().nullable(),
-}).omit({ id: true, createdAt: true, utilizado: true, expiraEm: true });
+  email: z.string().email("Email inválido"),
+  token: z.string().min(1, "Token é obrigatório"),
+  tipo: z.string().min(1, "Tipo é obrigatório"),
+  expiraEm: z.date(),
+}).omit({ id: true, createdAt: true, utilizado: true });
 
 // 🔥 SCHEMAS PARA CADASTRO
 export const cadastroUsuarioSchema = z.object({
