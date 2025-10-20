@@ -1,13 +1,13 @@
-// shared/schema.ts - SCHEMA COMPLETO ATUALIZADO
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb, numeric } from "drizzle-orm/pg-core";
+// shared/schema.ts - SCHEMA COMPLETO CORRIGIDO
+import { pgTable, text, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// 🔥 TABELAS PRINCIPAIS
+// 🔥 TABELAS PRINCIPAIS - CORRIGIDAS
 export const categories = pgTable("categories", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
-  type: text("type").notNull(), // "limpeza", "ferramenta", "insumo", "equipamento", "outros"
+  type: text("type").notNull(),
   description: text("description"),
 });
 
@@ -25,15 +25,14 @@ export const products = pgTable("products", {
   locationId: text("location_id").references(() => locations.id),
   quantity: integer("quantity").notNull().default(0),
   minQuantity: integer("min_quantity").notNull().default(0),
-  unitPrice: text("unit_price"), // Alterado para string para evitar problemas de precisão
+  unitPrice: text("unit_price"),
   description: text("description"),
-  // ❌ REMOVIDO: campo 'type' - agora vem da categoria
 });
 
 export const movements = pgTable("movements", {
   id: text("id").primaryKey(),
   productId: text("product_id").references(() => products.id),
-  type: text("type").notNull(), // "entrada", "saida", "ajuste"
+  type: text("type").notNull(),
   quantity: integer("quantity").notNull(),
   userId: text("user_id"),
   notes: text("notes"),
@@ -43,7 +42,7 @@ export const movements = pgTable("movements", {
 export const inventories = pgTable("inventories", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
-  status: text("status").notNull().default("em_andamento"), // "em_andamento", "finalizado"
+  status: text("status").notNull().default("em_andamento"),
   userId: text("user_id"),
   createdAt: timestamp("created_at").defaultNow(),
   finishedAt: timestamp("finished_at"),
@@ -65,8 +64,8 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
-  tipo: text("tipo").notNull().default("individual"), // "individual", "empresa"
-  role: text("role").notNull().default("user"), // "super_admin", "admin", "user"
+  tipo: text("tipo").notNull().default("individual"),
+  role: text("role").notNull().default("user"),
   empresaId: text("empresa_id"),
   emailVerificado: boolean("email_verificado").default(false),
   tokenVerificacao: text("token_verificacao"),
@@ -99,8 +98,8 @@ export const emailVerificacoes = pgTable("email_verificacoes", {
   id: text("id").primaryKey(),
   userId: text("user_id").references(() => users.id),
   email: text("email").notNull(),
-  token: text("token").notNull(),
-  tipo: text("tipo").notNull(), // "cadastro", "recuperacao"
+  token: text("token").notNull().unique(),
+  tipo: text("tipo").notNull(),
   utilizado: boolean("utilizado").default(false),
   expiraEm: timestamp("expira_em").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
@@ -110,8 +109,8 @@ export const reports = pgTable("reports", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   type: text("type").notNull(),
-  format: text("format").notNull(), // "excel", "pdf", "csv"
-  filters: jsonb("filters"),
+  format: text("format").notNull(),
+  filters: jsonb("filters").default({}),
   generatedBy: text("generated_by"),
   filePath: text("file_path"),
   fileSize: integer("file_size").default(0),
@@ -121,7 +120,7 @@ export const reports = pgTable("reports", {
 export const importHistory = pgTable("import_history", {
   id: text("id").primaryKey(),
   fileName: text("file_name").notNull(),
-  status: text("status").notNull(), // "processando", "processado", "erro"
+  status: text("status").notNull(),
   productsFound: integer("products_found").default(0),
   productsCreated: integer("products_created").default(0),
   productsUpdated: integer("products_updated").default(0),
@@ -140,20 +139,20 @@ export const importHistory = pgTable("import_history", {
 
 export const nfeData = pgTable("nfe_data", {
   id: text("id").primaryKey(),
-  importHistoryId: text("import_history_id").references(() => importHistory.id),
-  accessKey: text("access_key").notNull(),
+  importHistoryId: text("import_history_id").references(() => importHistory.id).notNull(),
+  accessKey: text("access_key").notNull().unique(),
   documentNumber: text("document_number"),
-  supplier: jsonb("supplier"),
+  supplier: jsonb("supplier").default({}),
   emissionDate: timestamp("emission_date").notNull(),
   totalValue: text("total_value"),
   xmlContent: text("xml_content"),
-  rawData: jsonb("raw_data"),
+  rawData: jsonb("raw_data").default({}),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const nfeProducts = pgTable("nfe_products", {
   id: text("id").primaryKey(),
-  importHistoryId: text("import_history_id").references(() => importHistory.id),
+  importHistoryId: text("import_history_id").references(() => importHistory.id).notNull(),
   productId: text("product_id").references(() => products.id),
   nfeCode: text("nfe_code"),
   code: text("code"),
@@ -162,10 +161,10 @@ export const nfeProducts = pgTable("nfe_products", {
   unitPrice: text("unit_price"),
   unit: text("unit"),
   totalValue: text("total_value"),
-  nfeData: jsonb("nfe_data"),
+  nfeData: jsonb("nfe_data").default({}),
 });
 
-// 🔥 SCHEMAS DE INSERÇÃO
+// 🔥 SCHEMAS DE INSERÇÃO - CORRIGIDOS
 export const insertCategorySchema = createInsertSchema(categories, {
   name: z.string().min(1, "Nome é obrigatório"),
   type: z.enum(["limpeza", "ferramenta", "insumo", "equipamento", "outros"]),
@@ -183,7 +182,6 @@ export const insertProductSchema = createInsertSchema(products, {
   quantity: z.number().int().min(0, "Quantidade deve ser maior ou igual a 0"),
   minQuantity: z.number().int().min(0, "Estoque mínimo deve ser maior ou igual a 0"),
   unitPrice: z.string().min(1, "Preço unitário é obrigatório"),
-  // ❌ REMOVIDO: type
 }).omit({ id: true });
 
 export const insertMovementSchema = createInsertSchema(movements, {
@@ -206,19 +204,56 @@ export const insertUserSchema = createInsertSchema(users, {
   email: z.string().email("Email inválido"),
   tipo: z.enum(["individual", "empresa"]),
   role: z.enum(["super_admin", "admin", "user"]),
-}).omit({ id: true, createdAt: true, emailVerificado: true, tokenVerificacao: true, dataVerificacao: true });
+}).omit({ 
+  id: true, 
+  createdAt: true, 
+  emailVerificado: true, 
+  tokenVerificacao: true, 
+  dataVerificacao: true 
+});
 
-export const insertReportSchema = createInsertSchema(reports).omit({ id: true, createdAt: true, fileSize: true });
+export const insertReportSchema = createInsertSchema(reports, {
+  filters: z.any().optional(),
+}).omit({ id: true, createdAt: true, fileSize: true });
 
-export const insertImportHistorySchema = createInsertSchema(importHistory).omit({ id: true, createdAt: true, processedAt: true });
+export const insertImportHistorySchema = createInsertSchema(importHistory, {
+  userId: z.string().optional().nullable(),
+  processedAt: z.date().optional().nullable(),
+  errorMessage: z.string().optional().nullable(),
+}).omit({ id: true, createdAt: true });
 
-export const insertNfeDataSchema = createInsertSchema(nfeData).omit({ id: true, createdAt: true });
+export const insertNfeDataSchema = createInsertSchema(nfeData, {
+  supplier: z.any().optional(),
+  rawData: z.any().optional(),
+}).omit({ id: true, createdAt: true });
 
-export const insertNfeProductSchema = createInsertSchema(nfeProducts).omit({ id: true });
+export const insertNfeProductSchema = createInsertSchema(nfeProducts, {
+  productId: z.string().optional().nullable(),
+  nfeData: z.any().optional(),
+}).omit({ id: true });
 
-export const insertEmpresaSchema = createInsertSchema(empresas).omit({ id: true, createdAt: true, updatedAt: true, status: true, dataAprovacao: true, plano: true, dataExpiracao: true });
+export const insertEmpresaSchema = createInsertSchema(empresas, {
+  telefone: z.string().optional().nullable(),
+  website: z.string().optional().nullable(),
+  cep: z.string().optional().nullable(),
+  logradouro: z.string().optional().nullable(),
+  numero: z.string().optional().nullable(),
+  complemento: z.string().optional().nullable(),
+  cidade: z.string().optional().nullable(),
+  estado: z.string().optional().nullable(),
+}).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true, 
+  status: true, 
+  dataAprovacao: true, 
+  plano: true, 
+  dataExpiracao: true 
+});
 
-export const insertEmailVerificacaoSchema = createInsertSchema(emailVerificacoes).omit({ id: true, createdAt: true, utilizado: true });
+export const insertEmailVerificacaoSchema = createInsertSchema(emailVerificacoes, {
+  userId: z.string().optional().nullable(),
+}).omit({ id: true, createdAt: true, utilizado: true, expiraEm: true });
 
 // 🔥 SCHEMAS PARA CADASTRO
 export const cadastroUsuarioSchema = z.object({

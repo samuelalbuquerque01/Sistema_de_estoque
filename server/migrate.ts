@@ -1,4 +1,4 @@
-// server/migrate.ts
+// server/migrate.ts - VERSÃO CORRIGIDA
 import { db } from "./db";
 
 export async function migrate() {
@@ -111,7 +111,7 @@ export async function migrate() {
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL REFERENCES users(id),
         email TEXT NOT NULL,
-        token TEXT NOT NULL,
+        token TEXT NOT NULL UNIQUE,
         tipo TEXT NOT NULL,
         utilizado BOOLEAN DEFAULT FALSE,
         expira_em TIMESTAMP NOT NULL,
@@ -124,7 +124,7 @@ export async function migrate() {
         name TEXT NOT NULL,
         type TEXT NOT NULL,
         format TEXT NOT NULL,
-        filters JSONB,
+        filters JSONB DEFAULT '{}',
         generated_by TEXT,
         file_path TEXT,
         file_size INTEGER DEFAULT 0,
@@ -158,11 +158,11 @@ export async function migrate() {
         import_history_id TEXT NOT NULL REFERENCES import_history(id),
         access_key TEXT NOT NULL UNIQUE,
         document_number TEXT,
-        supplier JSONB,
+        supplier JSONB DEFAULT '{}',
         emission_date TIMESTAMP NOT NULL,
         total_value TEXT,
         xml_content TEXT,
-        raw_data JSONB,
+        raw_data JSONB DEFAULT '{}',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )`,
       
@@ -178,7 +178,7 @@ export async function migrate() {
         unit_price TEXT,
         unit TEXT,
         total_value TEXT,
-        nfe_data JSONB
+        nfe_data JSONB DEFAULT '{}'
       )`
     ];
 
