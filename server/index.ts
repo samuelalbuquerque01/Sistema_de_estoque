@@ -8,7 +8,12 @@ console.log('🚀 Iniciando StockMaster Server...');
 console.log('📊 Environment:', process.env.NODE_ENV);
 console.log('🔗 DATABASE_URL:', process.env.DATABASE_URL ? 'Configurada' : 'Não configurada');
 
-// SEU CÓDIGO ATUAL (já está correto)
+// DEBUG: Verificar se o arquivo está sendo executado
+console.log('🔍 DEBUG: server/index.ts started executing');
+console.log('🔍 DEBUG: Current directory:', process.cwd());
+console.log('🔍 DEBUG: NODE_ENV:', process.env.NODE_ENV);
+
+// SEU CÓDIGO ATUAL
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
@@ -52,10 +57,10 @@ app.use((req, res, next) => {
 
 (async () => {
   try {
-    // ✅ ADICIONE ESTA LINHA PARA EXECUTAR A MIGRAÇÃO
-    console.log('🔄 Executando migração do banco de dados...');
+    // ✅ EXECUTAR MIGRAÇÃO ANTES DE INICIAR
+    console.log('🔄 Iniciando migração do banco de dados...');
     await migrate();
-    console.log('✅ Migração do banco de dados concluída com sucesso!');
+    console.log('✅ Migração do banco de dados concluída!');
 
     const server = await registerRoutes(app);
 
