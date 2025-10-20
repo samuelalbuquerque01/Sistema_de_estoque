@@ -77,7 +77,7 @@ function sendXmlResponse(res: any, nfeData: any, importItem: any) {
   res.send(xmlContent);
 }
 
-export async function registerRoutes(app: Express): Promise<Server> {
+export async function registerRoutes(app: Express): Promise<void> {
   console.log('🔄 Inicializando serviços...');
   
   // ✅ Health Check - DEVE SER A PRIMEIRA ROTA
@@ -1032,6 +1032,5 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  const httpServer = createServer(app);
-  return httpServer;
+  console.log('✅ Todas as rotas da API foram registradas');
 }
