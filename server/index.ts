@@ -56,18 +56,13 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
+  // ✅ CORREÇÃO PARA RENDER - usar 0.0.0.0 em produção
   const port = parseInt(process.env.PORT || '5000', 10);
-  
-  // Para Windows, usar 'localhost' em vez de '0.0.0.0'
-  // e remover a opção reusePort que pode causar problemas
-  server.listen({
-    port,
-    host: "localhost", // Mudado de "0.0.0.0" para "localhost"
-  }, () => {
-    log(`serving on http://localhost:${port}`);
+  const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
+
+  server.listen(port, host, () => {
+    log(`🚀 StockMaster server running on http://${host}:${port}`);
+    log(`📊 Environment: ${process.env.NODE_ENV}`);
+    log(`🌐 Health check available at /api/health`);
   });
 })();

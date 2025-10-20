@@ -1,4 +1,4 @@
-// server/routes.ts - VERSÃO LIMPA ATUALIZADA
+// server/routes.ts - VERSÃO COMPLETA ATUALIZADA PARA RENDER
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
@@ -78,6 +78,7 @@ function sendXmlResponse(res: any, nfeData: any, importItem: any) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Inicializar serviços
   EmailService.initialize();
   
   // Inicializar categorias padrão
@@ -96,8 +97,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.error('❌ Erro ao inicializar usuário admin:', error);
   }
   
+  // Rotas de importação e notas fiscais
   app.use("/api/import", importRoutes);
   app.use("/api/invoices", invoiceRoutes);
+
+  // ✅ Health Check para Render
+  app.get("/api/health", async (req, res) => {
+    try {
+      // Verificar conexão com banco de dados
+      const categories = await storage.getCategories();
+      const users = await storage.getUsers();
+      
+      res.json({
+        status: "healthy",
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV,
+        database: {
+          connected: true,
+          categories: categories.length,
+          users: users.length
+        },
+        services: {
+          email: !!process.env.EMAIL_USER
+        }
+      });
+    } catch (error) {
+      res.status(500).json({
+        status: "unhealthy",
+        timestamp: new Date().toISOString(),
+        error: "Database connection failed",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Rota raiz para verificar se API está online
+  app.get("/api", (req, res) => {
+    res.json({
+      message: "StockMaster API is running",
+      version: "1.0.0",
+      environment: process.env.NODE_ENV,
+      timestamp: new Date().toISOString()
+    });
+  });
 
   // Rotas de inicialização
   app.post("/api/init/categories", async (req, res) => {
@@ -137,6 +179,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Rotas de autenticação
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { email, password } = req.body;
@@ -381,6 +424,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Dashboard
   app.get("/api/dashboard/stats", async (req, res) => {
     try {
       const products = await storage.getProducts();
@@ -526,151 +570,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/import/history", async (req, res) => {
-    try {
-      const importHistory = await storage.getImportHistory();
-      const formattedHistory = importHistory.map(item => ({
-        id: item.id,
-        fileName: item.fileName,
-        status: item.status,
-        productsFound: item.productsFound || 0,
-        productsCreated: item.productsCreated || 0,
-        productsUpdated: item.productsUpdated || 0,
-        supplier: {
-          name: item.supplier || 'Fornecedor não identificado',
-          cnpj: item.supplierCnpj || '00.000.000/0001-00',
-          address: item.supplierAddress || ''
-        },
-        nfeData: {
-          number: item.nfeNumber || '000001',
-          key: item.nfeKey || '',
-          emissionDate: item.emissionDate || item.createdAt,
-          totalValue: item.totalValue || 0,
-          xmlContent: item.xmlContent
-        },
-        importDate: item.createdAt,
-        processedAt: item.processedAt,
-        errorMessage: item.errorMessage,
-        userId: item.userId
-      }));
-      res.json(formattedHistory);
-    } catch (error) {
-      res.status(500).json({ error: "Erro interno do servidor" });
-    }
-  });
-
-  app.get("/api/import/:id/products", async (req, res) => {
-    try {
-      const { id } = req.params;
-      const nfeProducts = await storage.getNfeProductsByImport(id);
-      const formattedProducts = nfeProducts.map(product => ({
-        id: product.id,
-        code: product.nfeCode || product.code || 'N/A',
-        name: product.name || 'Produto não identificado',
-        quantity: product.quantity || 0,
-        unitPrice: parseFloat(product.unitPrice?.toString() || '0'),
-        unit: product.unit || 'UN',
-        totalValue: parseFloat(product.totalValue?.toString() || '0'),
-        nfeData: product.nfeData
-      }));
-      res.json(formattedProducts);
-    } catch (error) {
-      res.status(500).json({ error: "Erro interno do servidor" });
-    }
-  });
-
-  app.get("/api/import/:id/download", async (req, res) => {
-    try {
-      const { id } = req.params;
-      
-      const nfeData = await storage.getNfeDataByImport(id);
-      
-      if (!nfeData) {
-        const importItem = await storage.getImportHistoryById(id);
-        if (!importItem) {
-          return res.status(404).json({ error: "Importação não encontrada" });
-        }
-        
-        if (importItem.nfeKey) {
-          const nfeByKey = await storage.getNfeDataByAccessKey(importItem.nfeKey);
-          if (nfeByKey) {
-            return sendXmlResponse(res, nfeByKey, importItem);
-          }
-        }
-        
-        return res.status(404).json({ error: "XML não encontrado para esta importação" });
-      }
-
-      if (!nfeData.xmlContent) {
-        return res.status(404).json({ error: "Conteúdo XML não disponível" });
-      }
-
-      return sendXmlResponse(res, nfeData, null);
-
-    } catch (error) {
-      res.status(500).json({ 
-        error: "Erro interno do servidor ao buscar XML",
-        message: error instanceof Error ? error.message : 'Erro desconhecido'
-      });
-    }
-  });
-
-  app.post("/api/import/:id/reprocess", async (req, res) => {
-    try {
-      const { id } = req.params;
-      const importItem = await storage.getImportHistoryById(id);
-      if (!importItem) return res.status(404).json({ error: "Importação não encontrada" });
-      
-      await storage.updateImportHistory(id, { status: 'processando', errorMessage: null });
-
-      setTimeout(async () => {
-        try {
-          const nfeProducts = await storage.getNfeProductsByImport(id);
-          await storage.updateImportHistory(id, {
-            status: 'processado',
-            productsFound: nfeProducts.length,
-            productsCreated: nfeProducts.length,
-            processedAt: new Date()
-          });
-        } catch (error) {
-          await storage.updateImportHistory(id, {
-            status: 'erro',
-            errorMessage: 'Erro no reprocessamento'
-          });
-        }
-      }, 2000);
-
-      res.json({ success: true, message: "Reprocessamento iniciado", importId: id });
-    } catch (error) {
-      res.status(500).json({ error: "Erro interno do servidor" });
-    }
-  });
-
-  app.delete("/api/import/:id", async (req, res) => {
-    try {
-      const { id } = req.params;
-      
-      const importItem = await storage.getImportHistoryById(id);
-      if (!importItem) {
-        return res.status(404).json({ error: "Importação não encontrada" });
-      }
-      
-      await storage.deleteImportHistory(id);
-      
-      res.json({ 
-        success: true, 
-        message: "Importação excluída permanentemente", 
-        importId: id 
-      });
-      
-    } catch (error) {
-      res.status(500).json({ 
-        error: "Erro interno do servidor ao excluir importação",
-        message: error instanceof Error ? error.message : 'Erro desconhecido'
-      });
-    }
-  });
-
+  // Produtos
   app.get("/api/products", async (req, res) => {
     try {
       const products = await storage.getProducts();
@@ -715,20 +615,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/products/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      
       await storage.deleteProduct(id);
-      
       res.status(204).send();
-      
     } catch (error) {
       res.status(500).json({ 
         error: "Erro interno do servidor ao excluir produto",
-        message: error instanceof Error ? error.message : 'Erro desconhecido',
-        details: "O produto pode estar vinculado a movimentações, inventários ou outros registros"
+        message: error instanceof Error ? error.message : 'Erro desconhecido'
       });
     }
   });
 
+  // Categorias
   app.get("/api/categories", async (req, res) => {
     try {
       const categories = await storage.getCategories();
@@ -749,6 +646,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Localizações
   app.get("/api/locations", async (req, res) => {
     try {
       const locations = await storage.getLocations();
@@ -772,13 +670,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/locations/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      
       const validatedData = insertLocationSchema.partial().parse(req.body);
-      
       const location = await storage.updateLocation(id, validatedData);
-      
       res.json(location);
-      
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ 
@@ -786,7 +680,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           details: error.errors 
         });
       }
-      
       res.status(500).json({ 
         error: "Erro interno do servidor ao atualizar local",
         message: error instanceof Error ? error.message : 'Erro desconhecido'
@@ -797,11 +690,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/locations/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      
       await storage.deleteLocation(id);
-      
       res.status(204).send();
-      
     } catch (error) {
       if (error instanceof Error) {
         if (error.message.includes('produtos vinculados')) {
@@ -816,7 +706,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
       }
-      
       res.status(500).json({ 
         error: "Erro interno do servidor ao excluir local",
         message: error instanceof Error ? error.message : 'Erro desconhecido'
@@ -824,6 +713,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Movimentações
   app.get("/api/movements", async (req, res) => {
     try {
       const movements = await storage.getMovements();
@@ -844,6 +734,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Inventários
   app.get("/api/inventories", async (req, res) => {
     try {
       const inventories = await storage.getInventories();
@@ -912,6 +803,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Relatórios
   app.get("/api/reports", async (req, res) => {
     try {
       const reports = await storage.getReports();
@@ -1003,6 +895,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           filePath: null
         });
       } catch (reportSaveError) {
+        // Ignora erro ao salvar relatório
       }
 
       const filename = `relatorio_${reportType.toLowerCase().replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.${fileExtension}`;
@@ -1016,73 +909,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/reports/download/:id", async (req, res) => {
-    try {
-      const report = await storage.getReport(req.params.id);
-      if (!report) return res.status(404).json({ error: "Relatório não encontrado" });
-      res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Content-Disposition', `attachment; filename="${report.name}_${report.createdAt?.toISOString().split('T')[0]}.json"`);
-      res.json({ message: "Relatório registrado", report: report });
-    } catch (error) {
-      res.status(500).json({ error: "Erro interno do servidor" });
-    }
-  });
-
-  app.delete("/api/reports/:id", async (req, res) => {
-    try {
-      await storage.deleteReport(req.params.id);
-      res.status(204).send();
-    } catch (error) {
-      res.status(500).json({ error: "Erro interno do servidor" });
-    }
-  });
-
-  app.get("/api/reports/stats", async (req, res) => {
-    try {
-      const reports = await storage.getReports();
-      const totalReports = reports.length;
-      const reportsByType = reports.reduce((acc, report) => {
-        acc[report.type] = (acc[report.type] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-      const reportsByFormat = reports.reduce((acc, report) => {
-        acc[report.format] = (acc[report.format] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-      const recentReports = reports
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        .slice(0, 5)
-        .map(report => ({
-          id: report.id,
-          name: report.name,
-          type: report.type,
-          format: report.format,
-          createdAt: report.createdAt,
-          generatedBy: report.generatedBy
-        }));
-
-      res.json({
-        totalReports,
-        reportsByType,
-        reportsByFormat,
-        recentReports
-      });
-    } catch (error) {
-      res.status(500).json({ error: "Erro interno do servidor" });
-    }
-  });
-
+  // Usuários
   app.get("/api/usuarios", async (req, res) => {
     try {
       const usuarios = await storage.getUsers();
-      
       const usuariosSemSenha = usuarios.map(u => {
         const { password, tokenVerificacao, ...usuarioSemSenha } = u;
         return usuarioSemSenha;
       });
-
       res.json(usuariosSemSenha);
-      
     } catch (error) {
       res.status(500).json({ error: "Erro interno do servidor" });
     }
@@ -1176,37 +1011,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/usuarios/:id", async (req, res) => {
     try {
       const { id } = req.params;
-
       await storage.deleteUser(id);
-      
       res.json({
         success: true,
         message: "Usuário deletado com sucesso"
       });
-
     } catch (error) {
       res.status(400).json({ 
         error: "Erro ao deletar usuário",
         message: error instanceof Error ? error.message : "Erro desconhecido"
       });
-    }
-  });
-
-  app.get("/api/usuarios/empresa/:empresaId", async (req, res) => {
-    try {
-      const { empresaId } = req.params;
-      
-      const usuarios = await storage.getUsersByEmpresa(empresaId);
-      
-      const usuariosSemSenha = usuarios.map(u => {
-        const { password, tokenVerificacao, ...usuarioSemSenha } = u;
-        return usuarioSemSenha;
-      });
-
-      res.json(usuariosSemSenha);
-      
-    } catch (error) {
-      res.status(500).json({ error: "Erro interno do servidor" });
     }
   });
 
