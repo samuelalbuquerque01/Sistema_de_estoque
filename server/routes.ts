@@ -128,7 +128,7 @@ export function registerRoutes(app: Express): void {
 
   // Inicializar serviços
   console.log('🔄 Inicializando serviços...');
-  EmailService.initialize();
+  console.log('✅ Serviços prontos');
   console.log('✅ Serviços inicializados');
   
   // Rotas de importação e notas fiscais

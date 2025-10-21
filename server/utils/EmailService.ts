@@ -1,17 +1,21 @@
-// server/utils/EmailService.ts - VERSÃO TEMPORÁRIA
+// server/utils/EmailService.ts - VERSÃO CORRIGIDA
 import { Resend } from 'resend';
 
 export class EmailService {
   private static resend = new Resend('re_WzzvDZ3x_8fWjhkgnTwpvbHRYfYZF629m');
 
+  // REMOVA o método initialize() ou deixe vazio
+  static initialize() {
+    console.log('📧 EmailService inicializado');
+    // Não precisa fazer nada, já está configurado
+  }
+
   static async enviarEmailVerificacao(email: string, nome: string, token: string): Promise<boolean> {
     try {
-      console.log(`📨 ========== ENVIANDO EMAIL ==========`);
-      console.log(`📨 Para: ${email}`);
+      console.log(`📨 ENVIANDO EMAIL PARA: ${email}`);
       
       const verificationUrl = `https://npc-6rcx.onrender.com/verificar-email?token=${token}`;
 
-      // TENTAR COM DOMÍNIO DO RESEND (funciona sempre)
       const { error } = await this.resend.emails.send({
         from: 'Neuropsicocentro <onboarding@resend.dev>',
         to: email,
@@ -26,24 +30,22 @@ export class EmailService {
               Verificar Email
             </a>
             <p style="margin-top: 20px; color: #666;">
-              Ou copie este link:<br>
-              ${verificationUrl}
+              Ou copie: ${verificationUrl}
             </p>
           </div>
         `,
       });
 
       if (error) {
-        console.error('❌ Erro ao enviar email:', error);
+        console.log('❌ Erro:', error.message);
         return false;
       }
 
-      console.log('✅ EMAIL ENVIADO COM SUCESSO!');
-      console.log('✅ Usando: onboarding@resend.dev');
+      console.log('✅ EMAIL ENVIADO!');
       return true;
 
     } catch (error) {
-      console.error('❌ Erro crítico:', error);
+      console.log('❌ Erro crítico:', error);
       return false;
     }
   }
@@ -66,8 +68,7 @@ export class EmailService {
     return {
       service: 'resend',
       configured: true,
-      domain: 'neuropsicocentro.com (aguardando DNS)',
-      fallback: 'onboarding@resend.dev (ativo)'
+      domain: 'onboarding@resend.dev'
     };
   }
 }
