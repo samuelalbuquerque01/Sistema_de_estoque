@@ -1,4 +1,4 @@
-// components/AppSidebar.tsx
+// components/AppSidebar.tsx - VERSÃO COMPLETA CORRIGIDA
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard,
@@ -30,6 +30,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "./AuthContext";
+import { useState } from "react";
 
 const menuItems = [
   { title: "Dashboard", icon: LayoutDashboard, path: "/" },
@@ -62,6 +63,7 @@ const administracaoItems = [
 export default function AppSidebar() {
   const [location] = useLocation();
   const { user, logout } = useAuth();
+  const [logoError, setLogoError] = useState(false);
 
   const canManageUsers = user?.role === 'super_admin' || user?.role === 'admin';
 
@@ -95,20 +97,24 @@ export default function AppSidebar() {
         <div className="flex flex-col items-center text-center space-y-3">
           {/* Logo Container */}
           <div className="flex items-center justify-center mb-1">
-            <img 
-              src="client/public/images/logo.png" 
-              alt="Neuropsicocentro Logo"
-              className="h-14 w-14 object-contain transition-opacity hover:opacity-90"
-              onError={(e) => {
-                // Fallback se a imagem não carregar
-                console.warn('Logo não carregou, usando fallback');
-                e.currentTarget.style.display = 'none';
-                // Você pode adicionar um fallback visual aqui se quiser
-              }}
-              onLoad={() => {
-                console.log('Logo carregado com sucesso');
-              }}
-            />
+            {logoError ? (
+              // Fallback visual automático
+              <div className="h-14 w-14 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-lg border-2 border-white/20">
+                NPC
+              </div>
+            ) : (
+              // Logo real
+              <img 
+                src="/images/logo.png" 
+                alt="Neuropsicocentro Logo"
+                className="h-14 w-14 object-contain transition-opacity hover:opacity-90"
+                onError={() => {
+                  console.log('Logo não carregou, usando fallback');
+                  setLogoError(true);
+                }}
+                onLoad={() => console.log('✅ Logo carregado com sucesso!')}
+              />
+            )}
           </div>
           
           {/* Texto da Empresa */}
