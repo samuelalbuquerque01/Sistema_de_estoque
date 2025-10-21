@@ -1,4 +1,4 @@
-// components/AppSidebar.tsx - VERSÃO COMPLETA CORRIGIDA
+// components/AppSidebar.tsx - VERSÃO LIMPA
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard,
@@ -95,29 +95,21 @@ export default function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border p-4">
         <div className="flex flex-col items-center text-center space-y-3">
-          {/* Logo Container */}
           <div className="flex items-center justify-center mb-1">
             {logoError ? (
-              // Fallback visual automático
               <div className="h-14 w-14 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-lg border-2 border-white/20">
                 NPC
               </div>
             ) : (
-              // Logo real
               <img 
                 src="/images/logo.png" 
                 alt="Neuropsicocentro Logo"
                 className="h-14 w-14 object-contain transition-opacity hover:opacity-90"
-                onError={() => {
-                  console.log('Logo não carregou, usando fallback');
-                  setLogoError(true);
-                }}
-                onLoad={() => console.log('✅ Logo carregado com sucesso!')}
+                onError={() => setLogoError(true)}
               />
             )}
           </div>
           
-          {/* Texto da Empresa */}
           <div className="w-full px-2">
             <h1 className="text-lg font-bold text-gray-900 leading-tight break-words">
               Neuropsicocentro

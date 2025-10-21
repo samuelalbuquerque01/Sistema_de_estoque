@@ -170,7 +170,7 @@ export default function Dashboard() {
     );
   }
 
-  // 🔥 CORREÇÃO: Garantir que o valor do estoque seja formatado corretamente
+  // CORREÇÃO: Garantir que o valor do estoque seja formatado corretamente
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',

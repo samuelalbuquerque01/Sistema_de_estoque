@@ -53,7 +53,7 @@ export default function PaginaEscolhaCadastro() {
       <div className="w-full max-w-4xl">
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Comece sua jornada no StockMaster
+            Comece sua jornada no Neuropsicocentro
           </h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
             Escolha o tipo de conta que melhor se adequa às suas necessidades

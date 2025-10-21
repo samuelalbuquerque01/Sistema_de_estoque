@@ -204,7 +204,7 @@ export default function CadastroUsuario() {
               {/* Benefícios */}
               <div className="bg-green-50 p-4 rounded-lg border border-green-200">
                 <h4 className="font-semibold text-green-800 mb-2">
-                  🎁 Conta Gratuita Inclui:
+                  Conta Gratuita Inclui:
                 </h4>
                 <ul className="text-sm text-green-700 space-y-1">
                   <li className="flex items-center">

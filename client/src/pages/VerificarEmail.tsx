@@ -115,7 +115,7 @@ export default function VerificarEmail() {
         </Card>
 
         <p className="text-center text-sm text-gray-600 mt-6">
-          StockMaster &copy; 2025
+          Neuropsicocentro &copy; 2025
         </p>
       </div>
     </div>

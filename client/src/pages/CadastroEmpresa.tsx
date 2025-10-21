@@ -130,7 +130,7 @@ export default function CadastroEmpresa() {
           trigger(["empresaLogradouro", "empresaCidade", "empresaEstado"]);
         }
       } catch (error) {
-        console.error('Erro ao buscar CEP:', error);
+        // Erro silencioso - não mostra para o usuário
       }
     }
   };
