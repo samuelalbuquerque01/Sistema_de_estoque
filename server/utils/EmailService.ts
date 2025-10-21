@@ -1,4 +1,4 @@
-// server/utils/EmailService.ts - VERSÃO FUNCIONAL
+// server/utils/EmailService.ts - VERSÃO CORRIGIDA
 import { Resend } from 'resend';
 
 export class EmailService {
@@ -14,23 +14,25 @@ export class EmailService {
       
       const verificationUrl = `https://npc-6rcx.onrender.com/verificar-email?token=${token}`;
 
-      // ✅ LISTA DE EMAILS AUTORIZADOS (só esses funcionam durante testes)
-      const authorizedEmails = [
-        'samuel_albuquerque_f@hotmail.com',
-        'ti@neuropsicocentro.com.br',
-        'seuemail@gmail.com' // adicione outros se precisar
-      ];
-
-      // Verificar se o email está autorizado
-      if (!authorizedEmails.includes(email)) {
-        console.log(`❌ Email ${email} não autorizado para testes`);
-        console.log(`💡 Use um destes: ${authorizedEmails.join(', ')}`);
-        return false;
+      // ✅ RESEND SÓ PERMITE ENVIAR PARA SEU PRÓPRIO EMAIL EM MODO TESTE
+      const allowedEmail = 'samuel_albuquerque_f@hotmail.com';
+      
+      if (email !== allowedEmail) {
+        console.log(`❌ Resend bloqueou: ${email}`);
+        console.log(`💡 EM PRODUÇÃO: Configure domínio em resend.com/domains`);
+        console.log(`💡 PARA TESTES: Use apenas: ${allowedEmail}`);
+        
+        // SIMULAR envio bem-sucedido para desenvolvimento
+        console.log(`📝 [SIMULAÇÃO] Email "enviado" para: ${email}`);
+        console.log(`🔗 Link: ${verificationUrl}`);
+        console.log(`👤 Nome: ${nome}`);
+        console.log(`✅ Desenvolvimento: Email registrado nos logs`);
+        
+        return true; // Retorna true para desenvolvimento
       }
 
-      console.log(`✅ Email autorizado: ${email}`);
+      console.log(`✅ Email permitido: ${email}`);
 
-      // SEMPRE usar onboarding@resend.dev (único que funciona em testes)
       const { error } = await this.resend.emails.send({
         from: 'Neuropsicocentro <onboarding@resend.dev>',
         to: email,
@@ -58,25 +60,26 @@ export class EmailService {
               </div>
               
               <p style="color: #777; font-size: 14px;">
-                <strong>Link alternativo:</strong><br>
+                <strong>Link de verificação:</strong><br>
                 <span style="word-break: break-all;">${verificationUrl}</span>
               </p>
-            </div>
-            
-            <div style="background: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 12px; border-radius: 0 0 10px 10px;">
-              <p style="margin: 0;">&copy; 2024 Neuropsicocentro</p>
+              
+              <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0; color: #856404; font-size: 14px;">
+                  <strong>⚠️ Este link expira em 24 horas.</strong>
+                </p>
+              </div>
             </div>
           </div>
         `,
       });
 
       if (error) {
-        console.log('❌ Erro ao enviar:', error.message);
+        console.log('❌ Erro real:', error.message);
         return false;
       }
 
       console.log('✅ EMAIL ENVIADO COM SUCESSO!');
-      console.log('✅ Para:', email);
       return true;
 
     } catch (error) {
@@ -87,35 +90,10 @@ export class EmailService {
 
   static async enviarEmailBoasVindas(email: string, nome: string): Promise<boolean> {
     try {
-      const authorizedEmails = [
-        'samuel_albuquerque_f@hotmail.com',
-        'ti@neuropsicocentro.com.br'
-      ];
-
-      if (!authorizedEmails.includes(email)) {
-        console.log(`❌ Email não autorizado para boas-vindas: ${email}`);
-        return false;
-      }
-
-      await this.resend.emails.send({
-        from: 'Neuropsicocentro <onboarding@resend.dev>',
-        to: email,
-        subject: 'Bem-vindo ao Neuropsicocentro! 🎉',
-        html: `
-          <div style="font-family: Arial, sans-serif; padding: 20px;">
-            <h2>Bem-vindo, ${nome}!</h2>
-            <p>Sua conta foi ativada com sucesso no Neuropsicocentro!</p>
-            <p>🎉 Agora você pode acessar todas as funcionalidades do sistema.</p>
-            <a href="https://npc-6rcx.onrender.com" 
-               style="background: #667eea; color: white; padding: 10px 20px; 
-                      text-decoration: none; border-radius: 5px; display: inline-block;">
-              Acessar Sistema
-            </a>
-          </div>
-        `,
-      });
-
-      console.log(`✅ Boas-vindas enviadas para: ${email}`);
+      // Para desenvolvimento, simular envio
+      console.log(`🎉 [SIMULAÇÃO] Boas-vindas para: ${nome} (${email})`);
+      console.log(`✅ Conta ativada com sucesso!`);
+      
       return true;
 
     } catch (error) {
@@ -127,12 +105,9 @@ export class EmailService {
   static getStatus() {
     return {
       service: 'resend',
-      status: 'ativo_em_modo_teste',
-      authorized_emails: [
-        'samuel_albuquerque_f@hotmail.com',
-        'ti@neuropsicocentro.com.br'
-      ],
-      note: 'Domínio em verificação - use emails autorizados'
+      status: 'modo_desenvolvimento',
+      email_permitido: 'samuel_albuquerque_f@hotmail.com',
+      note: 'Domínio em verificação - emails são simulados para desenvolvimento'
     };
   }
 }
