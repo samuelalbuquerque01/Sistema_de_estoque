@@ -1,4 +1,4 @@
-// src/pages/HistoricoImportacoes.tsx - VERSÃO LIMPA
+// src/pages/HistoricoImportacoes.tsx - VERSÃO CORRIGIDA
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
@@ -33,22 +33,17 @@ interface ImportHistoryItem {
   productsFound: number;
   productsCreated: number;
   productsUpdated: number;
-  supplier: {
-    name: string;
-    cnpj: string;
-    address?: string;
-  };
-  nfeData: {
-    number: string;
-    key: string;
-    emissionDate: string;
-    totalValue: number;
-    xmlContent?: string;
-  };
-  importDate: string;
+  supplier: string;
+  supplierCnpj: string;
+  supplierAddress?: string;
+  nfeNumber: string;
+  nfeKey: string;
+  emissionDate: string;
+  totalValue: string;
+  userId: string | null;
   processedAt?: string;
-  errorMessage?: string;
-  userId: string;
+  errorMessage?: string | null;
+  createdAt: string;
 }
 
 interface NfeProduct {
@@ -70,13 +65,34 @@ export default function HistoricoImportacoes() {
   const queryClient = useQueryClient();
 
   // Buscar histórico da API
-  const { data: imports = [], isLoading, refetch } = useQuery<ImportHistoryItem[]>({
+  const { data: importsData = [], isLoading, refetch } = useQuery({
     queryKey: ['/api/import/history'],
   });
 
+  // Mapear dados da API para a interface do frontend
+  const imports: ImportHistoryItem[] = Array.isArray(importsData) ? importsData.map(item => ({
+    id: item.id || '',
+    fileName: item.fileName || '',
+    status: item.status || 'erro',
+    productsFound: item.productsFound || 0,
+    productsCreated: item.productsCreated || 0,
+    productsUpdated: item.productsUpdated || 0,
+    supplier: item.supplier || 'Fornecedor não identificado',
+    supplierCnpj: item.supplierCnpj || '',
+    supplierAddress: item.supplierAddress,
+    nfeNumber: item.nfeNumber || '',
+    nfeKey: item.nfeKey || '',
+    emissionDate: item.emissionDate || new Date().toISOString(),
+    totalValue: item.totalValue || '0',
+    userId: item.userId || null,
+    processedAt: item.processedAt,
+    errorMessage: item.errorMessage,
+    createdAt: item.createdAt || new Date().toISOString()
+  })) : [];
+
   // Buscar produtos da importação selecionada
   const { data: importProducts = [] } = useQuery<NfeProduct[]>({
-    queryKey: [`/api/import/${selectedImport?.id}/products`],
+    queryKey: [`/api/import/${selectedImport?.id}/nfe-products`],
     enabled: !!selectedImport,
   });
 
@@ -105,48 +121,39 @@ export default function HistoricoImportacoes() {
   // Mutation para download do XML
   const downloadMutation = useMutation({
     mutationFn: async (importItem: ImportHistoryItem) => {
-      const response = await fetch(`/api/import/${importItem.id}/download`);
+      const response = await fetch(`/api/import/${importItem.id}/download-xml`);
       
       if (!response.ok) {
         throw new Error(`Erro ${response.status}: ${response.statusText}`);
       }
 
-      const contentType = response.headers.get('content-type');
-
-      if (contentType?.includes('application/xml') || contentType?.includes('text/xml')) {
-        const blob = await response.blob();
-        return { blob, success: true };
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Formato de resposta inválido');
-      }
+      const blob = await response.blob();
+      return blob;
     },
-    onSuccess: (data, importItem) => {
-      if (data.success) {
-        const url = window.URL.createObjectURL(data.blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${importItem.fileName.replace('.xml', '')}_${importItem.nfeData.key}.xml`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-        toast.success('XML baixado com sucesso');
-      }
+    onSuccess: (blob, importItem) => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `nfe_${importItem.nfeKey}.xml`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success('XML baixado com sucesso');
     },
     onError: (error: Error) => {
       toast.error(`Erro ao baixar XML: ${error.message}`);
     },
   });
 
-  // Estatísticas
+  // Estatísticas com tratamento seguro
   const stats = {
     total: imports.length,
     processed: imports.filter(i => i.status === 'processado').length,
     errors: imports.filter(i => i.status === 'erro').length,
     processing: imports.filter(i => i.status === 'processando').length,
     totalProducts: imports.reduce((sum, i) => sum + (i.productsFound || 0), 0),
-    totalValue: imports.reduce((sum, i) => sum + (i.nfeData.totalValue || 0), 0),
+    totalValue: imports.reduce((sum, i) => sum + (parseFloat(i.totalValue) || 0), 0),
   };
 
   // Importações filtradas
@@ -155,16 +162,17 @@ export default function HistoricoImportacoes() {
       return false;
     }
 
-    if (searchTerm && !imp.fileName.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        !imp.supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        !imp.nfeData.number.includes(searchTerm)) {
+    if (searchTerm && 
+        !imp.fileName.toLowerCase().includes(searchTerm.toLowerCase()) &&
+        !imp.supplier.toLowerCase().includes(searchTerm.toLowerCase()) &&
+        !imp.nfeNumber.includes(searchTerm)) {
       return false;
     }
 
-    if (dateRange.start && new Date(imp.importDate) < new Date(dateRange.start)) {
+    if (dateRange.start && new Date(imp.createdAt) < new Date(dateRange.start)) {
       return false;
     }
-    if (dateRange.end && new Date(imp.importDate) > new Date(dateRange.end)) {
+    if (dateRange.end && new Date(imp.createdAt) > new Date(dateRange.end)) {
       return false;
     }
 
@@ -213,7 +221,7 @@ export default function HistoricoImportacoes() {
       case 'parcial':
         return <Badge className="bg-yellow-500 text-white"><AlertTriangle className="h-3 w-3 mr-1" />Parcial</Badge>;
       default:
-        return null;
+        return <Badge variant="outline">{status}</Badge>;
     }
   };
 
@@ -228,6 +236,14 @@ export default function HistoricoImportacoes() {
       style: 'currency',
       currency: 'BRL'
     }).format(value);
+  };
+
+  const formatDate = (dateString: string): string => {
+    try {
+      return format(new Date(dateString), "dd/MM/yyyy HH:mm", { locale: ptBR });
+    } catch {
+      return "Data inválida";
+    }
   };
 
   if (isLoading) {
@@ -428,7 +444,7 @@ export default function HistoricoImportacoes() {
                 filteredImports.map((importItem) => (
                   <TableRow key={importItem.id}>
                     <TableCell className="text-sm">
-                      {format(new Date(importItem.importDate), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                      {formatDate(importItem.createdAt)}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -438,12 +454,12 @@ export default function HistoricoImportacoes() {
                     </TableCell>
                     <TableCell>
                       <div>
-                        <p className="font-medium">{importItem.supplier.name}</p>
-                        <p className="text-sm text-muted-foreground">{importItem.supplier.cnpj}</p>
+                        <p className="font-medium">{importItem.supplier}</p>
+                        <p className="text-sm text-muted-foreground">{importItem.supplierCnpj}</p>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">{importItem.nfeData.number}</Badge>
+                      <Badge variant="outline">{importItem.nfeNumber}</Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1">
@@ -464,7 +480,7 @@ export default function HistoricoImportacoes() {
                     </TableCell>
                     <TableCell>{getStatusBadge(importItem.status)}</TableCell>
                     <TableCell className="font-mono text-sm">
-                      {formatCurrency(importItem.nfeData.totalValue)}
+                      {formatCurrency(parseFloat(importItem.totalValue) || 0)}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
@@ -537,22 +553,22 @@ export default function HistoricoImportacoes() {
                     </div>
                     <div>
                       <label className="text-sm font-medium">Número da NFe</label>
-                      <p className="text-sm font-mono">{selectedImport.nfeData.number}</p>
+                      <p className="text-sm font-mono">{selectedImport.nfeNumber}</p>
                     </div>
                     <div>
                       <label className="text-sm font-medium">Chave de Acesso</label>
-                      <p className="text-sm font-mono break-all">{selectedImport.nfeData.key}</p>
+                      <p className="text-sm font-mono break-all">{selectedImport.nfeKey}</p>
                     </div>
                     <div>
                       <label className="text-sm font-medium">Data de Emissão</label>
                       <p className="text-sm">
-                        {format(new Date(selectedImport.nfeData.emissionDate), "dd/MM/yyyy", { locale: ptBR })}
+                        {formatDate(selectedImport.emissionDate)}
                       </p>
                     </div>
                     <div>
                       <label className="text-sm font-medium">Valor Total</label>
                       <p className="text-sm font-mono font-semibold">
-                        {formatCurrency(selectedImport.nfeData.totalValue)}
+                        {formatCurrency(parseFloat(selectedImport.totalValue) || 0)}
                       </p>
                     </div>
                     <div>
@@ -572,16 +588,16 @@ export default function HistoricoImportacoes() {
                   <div className="space-y-2">
                     <div>
                       <label className="text-sm font-medium">Nome/Razão Social</label>
-                      <p className="text-sm">{selectedImport.supplier.name}</p>
+                      <p className="text-sm">{selectedImport.supplier}</p>
                     </div>
                     <div>
                       <label className="text-sm font-medium">CNPJ</label>
-                      <p className="text-sm font-mono">{selectedImport.supplier.cnpj}</p>
+                      <p className="text-sm font-mono">{selectedImport.supplierCnpj}</p>
                     </div>
-                    {selectedImport.supplier.address && (
+                    {selectedImport.supplierAddress && (
                       <div>
                         <label className="text-sm font-medium">Endereço</label>
-                        <p className="text-sm">{selectedImport.supplier.address}</p>
+                        <p className="text-sm">{selectedImport.supplierAddress}</p>
                       </div>
                     )}
                   </div>
@@ -642,14 +658,14 @@ export default function HistoricoImportacoes() {
                     <div>
                       <label className="text-sm font-medium">Data de Importação</label>
                       <p className="text-sm">
-                        {format(new Date(selectedImport.importDate), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        {formatDate(selectedImport.createdAt)}
                       </p>
                     </div>
                     {selectedImport.processedAt && (
                       <div>
                         <label className="text-sm font-medium">Data de Processamento</label>
                         <p className="text-sm">
-                          {format(new Date(selectedImport.processedAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                          {formatDate(selectedImport.processedAt)}
                         </p>
                       </div>
                     )}
