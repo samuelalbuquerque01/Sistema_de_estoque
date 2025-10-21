@@ -1,13 +1,11 @@
-// server/utils/EmailService.ts - VERSÃO CORRIGIDA
+// server/utils/EmailService.ts - VERSÃO DOMÍNIO VERIFICADO
 import { Resend } from 'resend';
 
 export class EmailService {
   private static resend = new Resend('re_WzzvDZ3x_8fWjhkgnTwpvbHRYfYZF629m');
 
-  // REMOVA o método initialize() ou deixe vazio
   static initialize() {
     console.log('📧 EmailService inicializado');
-    // Não precisa fazer nada, já está configurado
   }
 
   static async enviarEmailVerificacao(email: string, nome: string, token: string): Promise<boolean> {
@@ -16,8 +14,20 @@ export class EmailService {
       
       const verificationUrl = `https://npc-6rcx.onrender.com/verificar-email?token=${token}`;
 
+      // VERIFICAR SE É EMAIL DE TESTE (seu hotmail)
+      const isTestEmail = email === 'samuel_albuquerque_f@hotmail.com';
+      
+      let fromEmail = 'Neuropsicocentro <onboarding@resend.dev>';
+      
+      // Se NÃO for email de teste, usar domínio verificado
+      if (!isTestEmail) {
+        fromEmail = 'Neuropsicocentro <contato@neuropsicocentro.com.br>';
+      }
+
+      console.log(`📤 De: ${fromEmail}`);
+
       const { error } = await this.resend.emails.send({
-        from: 'Neuropsicocentro <onboarding@resend.dev>',
+        from: fromEmail,
         to: email,
         subject: 'Verifique seu email - Neuropsicocentro',
         html: `
@@ -38,6 +48,12 @@ export class EmailService {
 
       if (error) {
         console.log('❌ Erro:', error.message);
+        
+        // Se falhar com domínio verificado, tentar fallback
+        if (error.message.includes('domain is not verified')) {
+          console.log('🔄 Tentando fallback...');
+          return await this.enviarComFallback(email, nome, token, verificationUrl);
+        }
         return false;
       }
 
@@ -46,6 +62,40 @@ export class EmailService {
 
     } catch (error) {
       console.log('❌ Erro crítico:', error);
+      return false;
+    }
+  }
+
+  static async enviarComFallback(email: string, nome: string, token: string, verificationUrl: string): Promise<boolean> {
+    try {
+      // Fallback: só enviar para emails autorizados
+      const authorizedEmails = [
+        'samuel_albuquerque_f@hotmail.com',
+        'ti@neuropsicocentro.com.br'
+      ];
+
+      if (!authorizedEmails.includes(email)) {
+        console.log('❌ Email não autorizado para fallback');
+        return false;
+      }
+
+      const { error } = await this.resend.emails.send({
+        from: 'Neuropsicocentro <onboarding@resend.dev>',
+        to: email,
+        subject: 'Verifique seu email - Neuropsicocentro',
+        html: `<p>Olá ${nome}, <a href="${verificationUrl}">clique aqui para verificar</a></p>`,
+      });
+
+      if (error) {
+        console.log('❌ Fallback também falhou:', error.message);
+        return false;
+      }
+
+      console.log('✅ Email enviado via fallback!');
+      return true;
+
+    } catch (error) {
+      console.log('❌ Erro no fallback:', error);
       return false;
     }
   }
@@ -68,7 +118,7 @@ export class EmailService {
     return {
       service: 'resend',
       configured: true,
-      domain: 'onboarding@resend.dev'
+      note: 'Use samuel_albuquerque_f@hotmail.com para testes'
     };
   }
 }
