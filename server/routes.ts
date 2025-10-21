@@ -406,7 +406,7 @@ console.log('✅ Serviços inicializados');
         tipo: 'cadastro'
       });
 
-      await EmailService.enviarEmailVerificacao(user.email, user.name, token);
+      await EmailService.enviarEmailSimples(user.email, user.name, token);
 
       res.json({
         success: true,
@@ -1025,7 +1025,7 @@ console.log('✅ Serviços inicializados');
     }
   });
 
-  // ========== ROTAS DE DEBUG E TESTE DE EMAIL ==========
+ // ========== ROTAS DE DEBUG E TESTE DE EMAIL ==========
 app.get("/api/debug/email", async (req, res) => {
   try {
     const emailConfig = {
@@ -1104,6 +1104,21 @@ app.get("/api/debug/email/status", (req, res) => {
     },
     timestamp: new Date().toISOString()
   });
+});
+
+// Rota para forçar reinicialização do email service
+app.post("/api/debug/email/reset", (req, res) => {
+  console.log('🔄 Reinicializando serviço de email...');
+  EmailService.initialize();
+  
+  setTimeout(() => {
+    const status = EmailService.getStatus();
+    res.json({
+      message: 'Serviço de email reinicializado',
+      status: status,
+      timestamp: new Date().toISOString()
+    });
+  }, 3000);
 });
 
 
