@@ -96,7 +96,7 @@ export default function AppSidebar() {
           {/* Logo Container */}
           <div className="flex items-center justify-center mb-1">
             <img 
-              src="https://www.neuropsicocentro.com.br/img/logo.png" 
+              src="client/public/images/logo.png" 
               alt="Neuropsicocentro Logo"
               className="h-14 w-14 object-contain transition-opacity hover:opacity-90"
               onError={(e) => {
