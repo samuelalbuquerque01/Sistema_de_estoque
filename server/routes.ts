@@ -1,4 +1,4 @@
-// server/routes.ts - VERSÃO COMPLETA ATUALIZADA PARA RENDER
+// server/routes.ts - VERSÃO COMPLETA COM RESEND
 import type { Express } from "express";
 import { storage } from "./storage";
 import { 
@@ -82,7 +82,6 @@ export function registerRoutes(app: Express): void {
   // ✅ Health Check - DEVE SER A PRIMEIRA ROTA
   app.get("/api/health", async (req, res) => {
     try {
-      // Verificar conexão com banco de dados de forma segura
       let categories = [];
       let users = [];
       
@@ -98,12 +97,12 @@ export function registerRoutes(app: Express): void {
         timestamp: new Date().toISOString(),
         environment: process.env.NODE_ENV || 'development',
         database: {
-          connected: categories.length >= 0, // Se não houve erro, considera conectado
+          connected: categories.length >= 0,
           categories: categories.length,
           users: users.length
         },
         services: {
-          email: !!process.env.EMAIL_USER
+          email: EmailService.getStatus()
         },
         version: "1.0.0"
       });
@@ -128,14 +127,109 @@ export function registerRoutes(app: Express): void {
   });
 
   // Inicializar serviços
-  // Inicializar serviços
-console.log('🔄 Inicializando serviços...');
-EmailService.initialize();
-console.log('✅ Serviços inicializados');
+  console.log('🔄 Inicializando serviços...');
+  EmailService.initialize();
+  console.log('✅ Serviços inicializados');
   
   // Rotas de importação e notas fiscais
   app.use("/api/import", importRoutes);
   app.use("/api/invoices", invoiceRoutes);
+
+  // ========== ROTAS DE EMAIL E DEBUG ==========
+  app.get("/api/debug/email", async (req, res) => {
+    try {
+      const emailConfig = {
+        hasResendKey: !!process.env.RESEND_API_KEY,
+        resendKey: process.env.RESEND_API_KEY ? 'Configurada' : 'Não configurada',
+        emailUser: process.env.EMAIL_USER,
+        emailFrom: process.env.EMAIL_FROM,
+        appUrl: process.env.APP_URL,
+        serviceStatus: EmailService.getStatus()
+      };
+      
+      console.log('🔍 Debug Email Config:', emailConfig);
+      
+      res.json({
+        ...emailConfig,
+        message: 'Configurações de email carregadas',
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error) {
+      res.status(500).json({
+        error: "Erro no debug de email",
+        message: error instanceof Error ? error.message : 'Erro desconhecido'
+      });
+    }
+  });
+
+  app.post("/api/debug/email/test", async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ 
+          error: "Email é obrigatório",
+          example: { "email": "seuemail@gmail.com" }
+        });
+      }
+
+      console.log('🧪 ========== TESTE DE EMAIL SOLICITADO ==========');
+      console.log('🧪 Email destino:', email);
+      
+      const result = await EmailService.enviarEmailVerificacao(
+        email, 
+        'Usuário Teste NPC', 
+        'test-token-' + Date.now()
+      );
+
+      const response = {
+        success: result,
+        message: result ? '✅ Email de teste enviado com sucesso!' : '❌ Falha ao enviar email',
+        email: email,
+        serviceStatus: EmailService.getStatus(),
+        timestamp: new Date().toISOString()
+      };
+
+      console.log('🧪 Resultado do teste:', response);
+      res.json(response);
+      
+    } catch (error) {
+      console.error('❌ Erro no teste de email:', error);
+      res.status(500).json({
+        error: "Erro no teste de email",
+        message: error instanceof Error ? error.message : 'Erro desconhecido',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
+  app.get("/api/debug/email/status", (req, res) => {
+    const status = EmailService.getStatus();
+    res.json({
+      status: status,
+      environment: {
+        NODE_ENV: process.env.NODE_ENV,
+        APP_URL: process.env.APP_URL
+      },
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  // Rota para forçar reinicialização do email service
+  app.post("/api/debug/email/reset", (req, res) => {
+    console.log('🔄 Reinicializando serviço de email...');
+    EmailService.initialize();
+    
+    setTimeout(() => {
+      const status = EmailService.getStatus();
+      res.json({
+        message: 'Serviço de email reinicializado',
+        status: status,
+        timestamp: new Date().toISOString()
+      });
+    }, 3000);
+  });
 
   // Rotas de inicialização
   app.post("/api/init/categories", async (req, res) => {
@@ -234,11 +328,15 @@ console.log('✅ Serviços inicializados');
       const resultado = await storage.cadastrarUsuarioIndividual(validatedData);
       
       if (resultado.user.email !== 'admin@neuropsicocentro.com') {
-        await EmailService.enviarEmailVerificacao(
+        const emailEnviado = await EmailService.enviarEmailVerificacao(
           resultado.user.email,
           resultado.user.name,
           resultado.token
         );
+
+        if (!emailEnviado) {
+          console.log('⚠️ Email não pôde ser enviado, mas usuário foi criado');
+        }
       }
 
       res.status(201).json({
@@ -406,7 +504,7 @@ console.log('✅ Serviços inicializados');
         tipo: 'cadastro'
       });
 
-      await EmailService.enviarEmailSimples(user.email, user.name, token);
+      await EmailService.enviarEmailVerificacao(user.email, user.name, token);
 
       res.json({
         success: true,
@@ -965,6 +1063,8 @@ console.log('✅ Serviços inicializados');
         tipo: 'cadastro'
       });
 
+      await EmailService.enviarEmailVerificacao(novoUsuario.email, novoUsuario.name, token);
+
       res.status(201).json({
         success: true,
         message: "Usuário criado com sucesso!",
@@ -1024,103 +1124,6 @@ console.log('✅ Serviços inicializados');
       });
     }
   });
-
- // ========== ROTAS DE DEBUG E TESTE DE EMAIL ==========
-app.get("/api/debug/email", async (req, res) => {
-  try {
-    const emailConfig = {
-      hasUser: !!process.env.EMAIL_USER,
-      hasPass: !!process.env.EMAIL_PASS,
-      user: process.env.EMAIL_USER,
-      from: process.env.EMAIL_FROM,
-      appUrl: process.env.APP_URL,
-      serviceStatus: EmailService.getStatus()
-    };
-    
-    console.log('🔍 Debug Email Config:', emailConfig);
-    
-    res.json({
-      ...emailConfig,
-      message: 'Configurações de email carregadas',
-      timestamp: new Date().toISOString()
-    });
-    
-  } catch (error) {
-    res.status(500).json({
-      error: "Erro no debug de email",
-      message: error instanceof Error ? error.message : 'Erro desconhecido'
-    });
-  }
-});
-
-app.post("/api/debug/email/test", async (req, res) => {
-  try {
-    const { email } = req.body;
-    
-    if (!email) {
-      return res.status(400).json({ 
-        error: "Email é obrigatório",
-        example: { "email": "seuemail@gmail.com" }
-      });
-    }
-
-    console.log('🧪 ========== TESTE DE EMAIL SOLICITADO ==========');
-    console.log('🧪 Email destino:', email);
-    
-    const result = await EmailService.enviarEmailVerificacao(
-      email, 
-      'Usuário Teste NPC', 
-      'test-token-' + Date.now()
-    );
-
-    const response = {
-      success: result,
-      message: result ? '✅ Email de teste enviado com sucesso!' : '❌ Falha ao enviar email',
-      email: email,
-      serviceStatus: EmailService.getStatus(),
-      timestamp: new Date().toISOString()
-    };
-
-    console.log('🧪 Resultado do teste:', response);
-    res.json(response);
-    
-  } catch (error) {
-    console.error('❌ Erro no teste de email:', error);
-    res.status(500).json({
-      error: "Erro no teste de email",
-      message: error instanceof Error ? error.message : 'Erro desconhecido',
-      timestamp: new Date().toISOString()
-    });
-  }
-});
-
-app.get("/api/debug/email/status", (req, res) => {
-  const status = EmailService.getStatus();
-  res.json({
-    status: status,
-    environment: {
-      NODE_ENV: process.env.NODE_ENV,
-      APP_URL: process.env.APP_URL
-    },
-    timestamp: new Date().toISOString()
-  });
-});
-
-// Rota para forçar reinicialização do email service
-app.post("/api/debug/email/reset", (req, res) => {
-  console.log('🔄 Reinicializando serviço de email...');
-  EmailService.initialize();
-  
-  setTimeout(() => {
-    const status = EmailService.getStatus();
-    res.json({
-      message: 'Serviço de email reinicializado',
-      status: status,
-      timestamp: new Date().toISOString()
-    });
-  }, 3000);
-});
-
 
   console.log('Todas as rotas da API foram registradas');
 }
