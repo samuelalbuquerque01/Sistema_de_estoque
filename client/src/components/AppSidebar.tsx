@@ -92,23 +92,31 @@ export default function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border p-4">
-        <div className="flex flex-col items-center text-center space-y-2">
-          <div className="flex-shrink-0 mb-2">
+        <div className="flex flex-col items-center text-center space-y-3">
+          {/* Logo Container */}
+          <div className="flex items-center justify-center mb-1">
             <img 
               src="https://www.neuropsicocentro.com.br/img/logo.png" 
               alt="Neuropsicocentro Logo"
-              className="h-12 w-12 object-contain mx-auto"
+              className="h-14 w-14 object-contain transition-opacity hover:opacity-90"
               onError={(e) => {
                 // Fallback se a imagem não carregar
+                console.warn('Logo não carregou, usando fallback');
                 e.currentTarget.style.display = 'none';
+                // Você pode adicionar um fallback visual aqui se quiser
+              }}
+              onLoad={() => {
+                console.log('Logo carregado com sucesso');
               }}
             />
           </div>
-          <div className="w-full">
-            <h1 className="text-base font-bold text-gray-900 leading-tight break-words">
+          
+          {/* Texto da Empresa */}
+          <div className="w-full px-2">
+            <h1 className="text-lg font-bold text-gray-900 leading-tight break-words">
               Neuropsicocentro
             </h1>
-            <p className="text-xs text-sidebar-foreground/60 mt-1">
+            <p className="text-xs text-sidebar-foreground/70 mt-1 font-medium">
               Gestão de Estoque
             </p>
           </div>
