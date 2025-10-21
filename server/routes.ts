@@ -135,6 +135,105 @@ export function registerRoutes(app: Express): void {
   app.use("/api/import", importRoutes);
   app.use("/api/invoices", invoiceRoutes);
 
+  // ========== ROTAS DE HISTÓRICO DE IMPORTAÇÃO ==========
+  app.get("/api/import/history", async (req, res) => {
+    try {
+      const importHistory = await storage.getImportHistory();
+      res.json(importHistory);
+    } catch (error) {
+      res.status(500).json({ 
+        error: "Erro interno do servidor ao buscar histórico de importações",
+        message: error instanceof Error ? error.message : 'Erro desconhecido'
+      });
+    }
+  });
+
+  app.get("/api/import/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const importItem = await storage.getImportHistoryById(id);
+      
+      if (!importItem) {
+        return res.status(404).json({ error: "Importação não encontrada" });
+      }
+      
+      res.json(importItem);
+    } catch (error) {
+      res.status(500).json({ 
+        error: "Erro interno do servidor",
+        message: error instanceof Error ? error.message : 'Erro desconhecido'
+      });
+    }
+  });
+
+  app.delete("/api/import/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteImportHistory(id);
+      res.json({ success: true, message: "Importação deletada com sucesso" });
+    } catch (error) {
+      res.status(500).json({ 
+        error: "Erro ao deletar importação",
+        message: error instanceof Error ? error.message : 'Erro desconhecido'
+      });
+    }
+  });
+
+  app.get("/api/import/:id/nfe-products", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const nfeProducts = await storage.getNfeProductsByImport(id);
+      res.json(nfeProducts);
+    } catch (error) {
+      res.status(500).json({ 
+        error: "Erro ao buscar produtos da NFe",
+        message: error instanceof Error ? error.message : 'Erro desconhecido'
+      });
+    }
+  });
+
+  app.get("/api/import/:id/nfe-data", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const nfeData = await storage.getNfeDataByImport(id);
+      
+      if (!nfeData) {
+        return res.status(404).json({ error: "Dados da NFe não encontrados" });
+      }
+      
+      res.json(nfeData);
+    } catch (error) {
+      res.status(500).json({ 
+        error: "Erro ao buscar dados da NFe",
+        message: error instanceof Error ? error.message : 'Erro desconhecido'
+      });
+    }
+  });
+
+  app.get("/api/import/:id/download-xml", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const importItem = await storage.getImportHistoryById(id);
+      
+      if (!importItem) {
+        return res.status(404).json({ error: "Importação não encontrada" });
+      }
+      
+      const nfeData = await storage.getNfeDataByImport(id);
+      
+      if (!nfeData || !nfeData.xmlContent) {
+        return res.status(404).json({ error: "XML não encontrado para esta importação" });
+      }
+      
+      sendXmlResponse(res, nfeData, importItem);
+    } catch (error) {
+      res.status(500).json({ 
+        error: "Erro ao baixar XML",
+        message: error instanceof Error ? error.message : 'Erro desconhecido'
+      });
+    }
+  });
+
   // ========== ROTAS DE EMAIL E DEBUG ==========
   app.get("/api/debug/email", async (req, res) => {
     try {
