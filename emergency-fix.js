@@ -10,7 +10,7 @@ const sql = postgres(databaseUrl, {
 
 async function createTables() {
   try {
-    console.log('🚀 Conectando ao banco...');
+    console.log('Conectando ao banco...');
     
     // 1. Cria tabela de usuários
     await sql`
@@ -29,7 +29,7 @@ async function createTables() {
         created_at TIMESTAMP DEFAULT NOW()
       )
     `;
-    console.log('✅ Tabela users criada!');
+    console.log('Tabela users criada!');
     
     // 2. Cria tabela de categorias
     await sql`
@@ -40,15 +40,15 @@ async function createTables() {
         description TEXT
       )
     `;
-    console.log('✅ Tabela categories criada!');
+    console.log('Tabela categories criada!');
     
     // 3. Cria usuário admin
     await sql`
       INSERT INTO users (id, username, password, name, email, role, email_verificado)
-      VALUES ('admin-123', 'admin', 'admin123', 'Administrador', 'admin@stockmaster.com', 'super_admin', true)
+      VALUES ('admin-123', 'admin', 'admin123', 'Administrador', 'admin@neuropsicocentro.com', 'super_admin', true)
       ON CONFLICT (email) DO NOTHING
     `;
-    console.log('✅ Usuário admin criado!');
+    console.log('Usuário admin criado!');
     
     // 4. Cria categorias padrão
     const defaultCategories = [
@@ -67,14 +67,14 @@ async function createTables() {
         ON CONFLICT (id) DO NOTHING
       `;
     }
-    console.log('✅ Categorias padrão criadas!');
+    console.log('Categorias padrão criadas!');
     
-    console.log('🎉 BANCO CONFIGURADO COM SUCESSO!');
-    console.log('📧 Login: admin@stockmaster.com');
-    console.log('🔑 Senha: admin123');
+    console.log('BANCO CONFIGURADO COM SUCESSO!');
+    console.log('Login: admin@neuropsicocentro.com');
+    console.log('Senha: admin123');
     
   } catch (error) {
-    console.error('❌ ERRO:', error);
+    console.error('ERRO:', error);
   } finally {
     await sql.end();
   }

@@ -7,12 +7,12 @@ import * as schema from "@shared/schema";
 const databaseUrl = process.env.DATABASE_URL;
 
 if (!databaseUrl) {
-  console.warn("⚠️ DATABASE_URL não configurada - usando configuração local para desenvolvimento");
+  console.warn("DATABASE_URL não configurada - usando configuração local para desenvolvimento");
 }
 
 // Configuração otimizada para Render
 const client = postgres(
-  databaseUrl || "postgresql://postgres:postgres@localhost:5432/stockmaster",
+  databaseUrl || "postgresql://postgres:postgres@localhost:5432/neuropsicocentro",
   {
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
     idle_timeout: 20,

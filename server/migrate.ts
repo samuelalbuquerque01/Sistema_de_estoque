@@ -2,7 +2,7 @@
 import { db } from "./db";
 
 export async function migrate() {
-  console.log('🔄 Verificando/Criando tabelas do banco de dados...');
+  console.log('Verificando/Criando tabelas do banco de dados...');
   
   try {
     // Criar tabelas essenciais primeiro
@@ -185,18 +185,18 @@ export async function migrate() {
     for (const sql of tables) {
       try {
         await db.execute(sql);
-        console.log('✅ Tabela criada/verificada');
+        console.log('Tabela criada/verificada');
       } catch (error: any) {
         if (error.message?.includes('already exists')) {
-          console.log('ℹ️  Tabela já existe');
+          console.log('Tabela já existe');
         } else {
-          console.log('⚠️  Erro ao criar tabela:', error.message);
+          console.log('Erro ao criar tabela:', error.message);
         }
       }
     }
 
     // Inserir dados iniciais
-    console.log('📦 Inserindo dados iniciais...');
+    console.log('Inserindo dados iniciais...');
     
     // Categorias padrão
     const categoriesData = [
@@ -227,16 +227,16 @@ export async function migrate() {
         `INSERT INTO users (id, username, password, name, email, tipo, role, email_verificado) 
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
          ON CONFLICT (email) DO NOTHING`,
-        ['admin-123', 'admin', 'admin123', 'Administrador', 'admin@stockmaster.com', 'individual', 'super_admin', true]
+        ['admin-123', 'admin', 'admin123', 'Administrador', 'admin@neuropsicocentro.com', 'individual', 'super_admin', true]
       );
     } catch (error) {
       // Ignora erros de inserção
     }
 
-    console.log('✅ Dados iniciais inseridos');
-    console.log('🎉 Migração concluída com sucesso!');
+    console.log('Dados iniciais inseridos');
+    console.log('Migração concluída com sucesso!');
 
   } catch (error) {
-    console.error('❌ Erro na migração:', error);
+    console.error('Erro na migração:', error);
   }
 }

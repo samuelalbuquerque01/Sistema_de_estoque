@@ -2,48 +2,99 @@
 import nodemailer from 'nodemailer';
 
 export class EmailService {
-  private static transporter: nodemailer.Transporter;
+  private static transporter: nodemailer.Transporter | null = null;
+  private static initialized: boolean = false;
 
   static initialize() {
+    if (this.initialized) {
+      return;
+    }
+
+    console.log('📧 ========== INICIALIZANDO SERVIÇO DE EMAIL ==========');
+    console.log('📧 EMAIL_USER:', process.env.EMAIL_USER ? '✅ Configurado' : '❌ Não configurado');
+    console.log('📧 EMAIL_PASS:', process.env.EMAIL_PASS ? '✅ Configurado' : '❌ Não configurado');
+    console.log('📧 EMAIL_FROM:', process.env.EMAIL_FROM || 'Usando padrão');
+    
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.log('⚠️  Email não configurado - EMAIL_USER e EMAIL_PASS não definidos');
+      console.log('❌ Variáveis de email não configuradas - emails não serão enviados');
+      this.transporter = null;
+      this.initialized = true;
       return;
     }
 
     try {
+      console.log('🔧 Criando transporter do Gmail...');
+      
+      // REMOVER ESPAÇOS da senha (caso tenha)
+      const cleanPassword = process.env.EMAIL_PASS.replace(/\s/g, '');
+      
       this.transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
           user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
+          pass: cleanPassword,
         },
-      });
-
-      this.transporter.verify((error) => {
-        if (error) {
-          console.error('❌ Erro na configuração de email:', error);
-        } else {
-          console.log('✅ Serviço de email configurado com sucesso');
+        connectionTimeout: 30000,
+        greetingTimeout: 30000,
+        socketTimeout: 30000,
+        secure: true,
+        tls: {
+          rejectUnauthorized: false
         }
       });
+
+      console.log('🔍 Verificando conexão com Gmail...');
+      
+      // Testar a conexão
+      this.transporter.verify((error, success) => {
+        if (error) {
+          console.error('❌ Falha na verificação do email:', error.message);
+          this.transporter = null;
+        } else {
+          console.log('✅ Serviço de email configurado e verificado com sucesso!');
+          console.log('✅ Pronto para enviar emails!');
+        }
+        this.initialized = true;
+      });
+      
     } catch (error) {
-      console.error('❌ Erro ao inicializar serviço de email:', error);
+      console.error('❌ Erro crítico ao inicializar serviço de email:', error);
+      this.transporter = null;
+      this.initialized = true;
     }
   }
 
   static async enviarEmailVerificacao(email: string, nome: string, token: string): Promise<boolean> {
     try {
+      console.log(`\n📨 ========== TENTANDO ENVIAR EMAIL ==========`);
+      console.log(`📨 Para: ${email}`);
+      console.log(`👤 Nome: ${nome}`);
+      console.log(`🔑 Token: ${token}`);
+      
+      if (!this.initialized) {
+        console.log('🔄 Serviço não inicializado, inicializando agora...');
+        this.initialize();
+        // Dar tempo para inicialização
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+
       if (!this.transporter) {
-        console.log('⚠️  Serviço de email não disponível - email não enviado');
+        console.log('❌ Transporter não disponível após inicialização');
+        console.log('💡 Verifique:');
+        console.log('  1. Variáveis EMAIL_USER e EMAIL_PASS no Render');
+        console.log('  2. Senha de App do Gmail (não a senha normal)');
+        console.log('  3. Verificação em 2 etapas ativada no Gmail');
         return false;
       }
 
-      const verificationUrl = `${process.env.APP_URL || 'http://localhost:5000'}/verificar-email?token=${token}`;
+      const verificationUrl = `${process.env.APP_URL || 'https://npc-6rcx.onrender.com'}/verificar-email?token=${token}`;
       
+      console.log(`🔗 URL de verificação: ${verificationUrl}`);
+
       const mailOptions = {
-        from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+        from: process.env.EMAIL_FROM || 'Neuropsicocentro <yagami00034@gmail.com>',
         to: email,
-        subject: 'Verifique seu email - StockMaster',
+        subject: 'Verifique seu email - Neuropsicocentro',
         html: `
           <!DOCTYPE html>
           <html>
@@ -104,15 +155,15 @@ export class EmailService {
           <body>
             <div class="container">
               <div class="header">
-                <h1 style="margin: 0; font-size: 28px;">StockMaster</h1>
-                <p style="margin: 10px 0 0 0; opacity: 0.9;">Controle Inteligente de Estoque</p>
+                <h1 style="margin: 0; font-size: 28px;">Neuropsicocentro</h1>
+                <p style="margin: 10px 0 0 0; opacity: 0.9;">Gestão de Estoque Inteligente</p>
               </div>
               
               <div class="content">
                 <h2 style="color: #333; margin-bottom: 20px;">Olá, ${nome}!</h2>
                 
                 <p style="color: #555; line-height: 1.6; font-size: 16px;">
-                  Obrigado por se cadastrar no <strong>StockMaster</strong>. 
+                  Obrigado por se cadastrar no <strong>Neuropsicocentro</strong>. 
                   Para ativar sua conta e começar a gerenciar seu estoque, 
                   clique no botão abaixo para verificar seu email:
                 </p>
@@ -136,12 +187,12 @@ export class EmailService {
                 </div>
                 
                 <p style="color: #777; font-size: 14px; border-top: 1px solid #eee; padding-top: 20px;">
-                  Precisa de ajuda? <a href="mailto:suporte@stockmaster.com" style="color: #667eea;">Entre em contato com nosso suporte</a>.
+                  Precisa de ajuda? <a href="mailto:${process.env.EMAIL_USER}" style="color: #667eea;">Entre em contato com nosso suporte</a>.
                 </p>
               </div>
               
               <div class="footer">
-                <p style="margin: 0;">&copy; 2025 StockMaster. Todos os direitos reservados.</p>
+                <p style="margin: 0;">&copy; 2024 Neuropsicocentro. Todos os direitos reservados.</p>
                 <p style="margin: 5px 0 0 0;">Este é um email automático, por favor não responda.</p>
               </div>
             </div>
@@ -150,26 +201,61 @@ export class EmailService {
         `,
       };
 
-      await this.transporter.sendMail(mailOptions);
-      console.log(`✅ Email de verificação enviado para: ${email}`);
+      console.log('📤 Enviando email através do Gmail...');
+      const info = await this.transporter.sendMail(mailOptions);
+      console.log(`✅ EMAIL ENVIADO COM SUCESSO!`);
+      console.log(`✅ Para: ${email}`);
+      console.log(`✅ Message ID: ${info.messageId}`);
+      console.log(`✅ Response: ${info.response}`);
+      
       return true;
+      
     } catch (error) {
-      console.error('❌ Erro ao enviar email de verificação:', error);
+      console.error('❌ ERRO AO ENVIAR EMAIL:');
+      console.error(`❌ Para: ${email}`);
+      
+      if (error instanceof Error) {
+        console.error(`❌ Mensagem: ${error.message}`);
+        
+        // Análise detalhada do erro
+        if (error.message.includes('Invalid login')) {
+          console.error('🔐 PROBLEMA: Credenciais inválidas');
+          console.error('💡 SOLUÇÃO: Verifique se está usando SENHA DE APP do Gmail');
+        } else if (error.message.includes('Connection timeout')) {
+          console.error('⏰ PROBLEMA: Timeout na conexão');
+          console.error('💡 SOLUÇÃO: Verifique conexão de internet');
+        } else if (error.message.includes('Authentication failed')) {
+          console.error('🔐 PROBLEMA: Autenticação falhou');
+          console.error('💡 SOLUÇÃO: Ative verificação em 2 etapas e use senha de app');
+        } else if (error.message.includes('Message rejected')) {
+          console.error('🚫 PROBLEMA: Email rejeitado');
+          console.error('💡 SOLUÇÃO: Verifique se o email destino existe');
+        }
+      }
+      
+      console.error('❌ Stack:', error);
       return false;
     }
   }
 
   static async enviarEmailBoasVindas(email: string, nome: string): Promise<boolean> {
     try {
+      console.log(`\n🎉 Enviando email de boas-vindas para: ${email}`);
+      
+      if (!this.initialized) {
+        this.initialize();
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+
       if (!this.transporter) {
-        console.log('⚠️  Serviço de email não disponível - email não enviado');
+        console.log('❌ Transporter não disponível para boas-vindas');
         return false;
       }
 
       const mailOptions = {
-        from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+        from: process.env.EMAIL_FROM || 'Neuropsicocentro <yagami00034@gmail.com>',
         to: email,
-        subject: 'Bem-vindo ao StockMaster! Sua conta foi ativada',
+        subject: 'Bem-vindo ao Neuropsicocentro! Sua conta foi ativada',
         html: `
           <!DOCTYPE html>
           <html>
@@ -187,47 +273,46 @@ export class EmailService {
           <body>
             <div class="container">
               <div class="header">
-                <h1 style="margin: 0; font-size: 28px;">Bem-vindo ao StockMaster!</h1>
+                <h1 style="margin: 0; font-size: 28px;">Bem-vindo ao Neuropsicocentro!</h1>
                 <p style="margin: 10px 0 0 0; opacity: 0.9;">Sua conta foi ativada com sucesso</p>
               </div>
               <div class="content">
                 <h2 style="color: #333;">Olá, ${nome}!</h2>
                 <p style="color: #555; line-height: 1.6;">
                   Sua conta foi verificada com sucesso e já está pronta para uso! 
-                  Agora você pode acessar todas as funcionalidades do StockMaster.
+                  Agora você pode acessar todas as funcionalidades do Neuropsicocentro.
                 </p>
                 
                 <h3 style="color: #333; margin-top: 30px;">O que você pode fazer agora:</h3>
                 
                 <div class="feature">
-                  <strong>Dashboard Completo</strong><br>
+                  <strong>📊 Dashboard Completo</strong><br>
                   Acompanhe métricas importantes do seu estoque em tempo real
                 </div>
                 
                 <div class="feature">
-                  <strong>Relatórios Avançados</strong><br>
+                  <strong>📈 Relatórios Avançados</strong><br>
                   Gere relatórios detalhados em PDF e Excel
                 </div>
                 
                 <div class="feature">
-                  <strong>Importação de NFe</strong><br>
+                  <strong>📥 Importação de NFe</strong><br>
                   Importe notas fiscais automaticamente
                 </div>
                 
                 <div class="feature">
-                  <strong>Alertas Inteligentes</strong><br>
+                  <strong>⚠️ Alertas Inteligentes</strong><br>
                   Receba alertas de estoque baixo automaticamente
                 </div>
                 
                 <div style="text-align: center; margin: 30px 0;">
-                  <a href="${process.env.APP_URL || 'http://localhost:5000'}" class="button">
+                  <a href="${process.env.APP_URL || 'https://npc-6rcx.onrender.com'}" class="button">
                     Acessar Minha Conta
                   </a>
                 </div>
                 
                 <p style="color: #777; font-size: 14px; border-top: 1px solid #eee; padding-top: 20px;">
-                  Precisa de ajuda? Consulte nossa <a href="${process.env.APP_URL || 'http://localhost:5000'}/ajuda" style="color: #667eea;">documentação</a> 
-                  ou entre em contato com nosso suporte.
+                  Precisa de ajuda? Consulte nossa documentação ou entre em contato com nosso suporte.
                 </p>
               </div>
             </div>
@@ -236,12 +321,24 @@ export class EmailService {
         `,
       };
 
-      await this.transporter.sendMail(mailOptions);
+      const info = await this.transporter.sendMail(mailOptions);
       console.log(`✅ Email de boas-vindas enviado para: ${email}`);
+      console.log(`✅ Message ID: ${info.messageId}`);
       return true;
+
     } catch (error) {
       console.error('❌ Erro ao enviar email de boas-vindas:', error);
       return false;
     }
+  }
+
+  // Método para verificar status do serviço
+  static getStatus() {
+    return {
+      initialized: this.initialized,
+      transporterAvailable: !!this.transporter,
+      emailUser: process.env.EMAIL_USER ? 'Configurado' : 'Não configurado',
+      emailPass: process.env.EMAIL_PASS ? 'Configurado' : 'Não configurado'
+    };
   }
 }

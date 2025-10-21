@@ -77,7 +77,7 @@ function sendXmlResponse(res: any, nfeData: any, importItem: any) {
 }
 
 export function registerRoutes(app: Express): void {
-  console.log('🔄 Inicializando serviços...');
+  console.log('Inicializando serviços...');
   
   // ✅ Health Check - DEVE SER A PRIMEIRA ROTA
   app.get("/api/health", async (req, res) => {
@@ -90,7 +90,7 @@ export function registerRoutes(app: Express): void {
         categories = await storage.getCategories();
         users = await storage.getUsers();
       } catch (dbError) {
-        console.error('❌ Erro ao conectar com banco:', dbError);
+        console.error('Erro ao conectar com banco:', dbError);
       }
       
       res.json({
@@ -120,7 +120,7 @@ export function registerRoutes(app: Express): void {
   // Rota raiz para verificar se API está online
   app.get("/api", (req, res) => {
     res.json({
-      message: "StockMaster API is running",
+      message: "Neuropsicocentro API is running",
       version: "1.0.0",
       environment: process.env.NODE_ENV,
       timestamp: new Date().toISOString()
@@ -128,7 +128,10 @@ export function registerRoutes(app: Express): void {
   });
 
   // Inicializar serviços
-  EmailService.initialize();
+  // Inicializar serviços
+console.log('🔄 Inicializando serviços...');
+EmailService.initialize();
+console.log('✅ Serviços inicializados');
   
   // Rotas de importação e notas fiscais
   app.use("/api/import", importRoutes);
@@ -164,7 +167,7 @@ export function registerRoutes(app: Express): void {
         },
         users: {
           count: users.length,
-          hasAdmin: users.some(u => u.email === 'admin@stockmaster.com')
+          hasAdmin: users.some(u => u.email === 'admin@neuropsicocentro.com')
         }
       });
     } catch (error) {
@@ -230,7 +233,7 @@ export function registerRoutes(app: Express): void {
       
       const resultado = await storage.cadastrarUsuarioIndividual(validatedData);
       
-      if (resultado.user.email !== 'admin@stockmaster.com') {
+      if (resultado.user.email !== 'admin@neuropsicocentro.com') {
         await EmailService.enviarEmailVerificacao(
           resultado.user.email,
           resultado.user.name,
@@ -241,7 +244,7 @@ export function registerRoutes(app: Express): void {
       res.status(201).json({
         success: true,
         message: "Cadastro realizado com sucesso! " + 
-          (resultado.user.email !== 'admin@stockmaster.com' 
+          (resultado.user.email !== 'admin@neuropsicocentro.com' 
             ? "Verifique seu email para ativar a conta." 
             : "Conta de administrador criada."),
         user: {
@@ -320,7 +323,7 @@ export function registerRoutes(app: Express): void {
           user: {
             id: 'admin',
             name: 'Administrador',
-            email: 'admin@stockmaster.com',
+            email: 'admin@neuropsicocentro.com',
             emailVerificado: true
           }
         });
@@ -420,7 +423,7 @@ export function registerRoutes(app: Express): void {
   // Dashboard
   app.get("/api/dashboard/stats", async (req, res) => {
     try {
-      console.log('📊 Acessando dashboard stats...');
+      console.log('Acessando dashboard stats...');
       const products = await storage.getProducts();
       const movements = await storage.getMovements();
       const categories = await storage.getCategories();
@@ -554,11 +557,11 @@ export function registerRoutes(app: Express): void {
         locations: locationSummary
       };
 
-      console.log('✅ Dashboard stats retornados com sucesso');
+      console.log('Dashboard stats retornados com sucesso');
       res.json(dashboardData);
 
     } catch (error) {
-      console.error('❌ Erro ao carregar dashboard:', error);
+      console.error('Erro ao carregar dashboard:', error);
       res.status(500).json({ 
         error: "Erro interno do servidor ao carregar dashboard",
         message: error instanceof Error ? error.message : 'Erro desconhecido'
@@ -569,11 +572,11 @@ export function registerRoutes(app: Express): void {
   // Produtos
   app.get("/api/products", async (req, res) => {
     try {
-      console.log('📦 Acessando lista de produtos...');
+      console.log('Acessando lista de produtos...');
       const products = await storage.getProducts();
       res.json(products);
     } catch (error) {
-      console.error('❌ Erro ao buscar produtos:', error);
+      console.error('Erro ao buscar produtos:', error);
       res.status(500).json({ error: "Erro interno do servidor" });
     }
   });
@@ -1022,5 +1025,87 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  console.log('✅ Todas as rotas da API foram registradas');
+  // ========== ROTAS DE DEBUG E TESTE DE EMAIL ==========
+app.get("/api/debug/email", async (req, res) => {
+  try {
+    const emailConfig = {
+      hasUser: !!process.env.EMAIL_USER,
+      hasPass: !!process.env.EMAIL_PASS,
+      user: process.env.EMAIL_USER,
+      from: process.env.EMAIL_FROM,
+      appUrl: process.env.APP_URL,
+      serviceStatus: EmailService.getStatus()
+    };
+    
+    console.log('🔍 Debug Email Config:', emailConfig);
+    
+    res.json({
+      ...emailConfig,
+      message: 'Configurações de email carregadas',
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    res.status(500).json({
+      error: "Erro no debug de email",
+      message: error instanceof Error ? error.message : 'Erro desconhecido'
+    });
+  }
+});
+
+app.post("/api/debug/email/test", async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ 
+        error: "Email é obrigatório",
+        example: { "email": "seuemail@gmail.com" }
+      });
+    }
+
+    console.log('🧪 ========== TESTE DE EMAIL SOLICITADO ==========');
+    console.log('🧪 Email destino:', email);
+    
+    const result = await EmailService.enviarEmailVerificacao(
+      email, 
+      'Usuário Teste NPC', 
+      'test-token-' + Date.now()
+    );
+
+    const response = {
+      success: result,
+      message: result ? '✅ Email de teste enviado com sucesso!' : '❌ Falha ao enviar email',
+      email: email,
+      serviceStatus: EmailService.getStatus(),
+      timestamp: new Date().toISOString()
+    };
+
+    console.log('🧪 Resultado do teste:', response);
+    res.json(response);
+    
+  } catch (error) {
+    console.error('❌ Erro no teste de email:', error);
+    res.status(500).json({
+      error: "Erro no teste de email",
+      message: error instanceof Error ? error.message : 'Erro desconhecido',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+app.get("/api/debug/email/status", (req, res) => {
+  const status = EmailService.getStatus();
+  res.json({
+    status: status,
+    environment: {
+      NODE_ENV: process.env.NODE_ENV,
+      APP_URL: process.env.APP_URL
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+
+  console.log('Todas as rotas da API foram registradas');
 }

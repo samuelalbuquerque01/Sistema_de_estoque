@@ -8,8 +8,8 @@ export class ReportService {
     try {
       const workbook = new ExcelJS.Workbook();
       
-      workbook.creator = 'StockMaster';
-      workbook.lastModifiedBy = 'StockMaster';
+      workbook.creator = 'Neuropsicocentro';
+      workbook.lastModifiedBy = 'Neuropsicocentro';
       workbook.created = new Date();
       workbook.modified = new Date();
 
@@ -87,7 +87,7 @@ export class ReportService {
       return buffer;
 
     } catch (error) {
-      console.error('❌ Erro ao gerar Excel, usando fallback:', error);
+      console.error('Erro ao gerar Excel, usando fallback:', error);
       return this.generateFallbackExcel(data, reportType);
     }
   }
@@ -429,7 +429,7 @@ export class ReportService {
         doc.fillColor('#2E86AB')
            .fontSize(20)
            .font('Helvetica-Bold')
-           .text('STOCKMASTER', 50, 50, { align: 'center' });
+           .text('NEUROPSICOCENTRO', 50, 50, { align: 'center' });
 
         doc.fillColor('#1E3A5F')
            .fontSize(16)
@@ -475,7 +475,7 @@ export class ReportService {
           doc.fillColor('#666666')
              .fontSize(8)
              .text(`Página ${pageNumber}`, 50, pageHeight - 30, { align: 'center' })
-             .text('Sistema StockMaster - Controle de Estoque', 50, pageHeight - 20, { align: 'center' });
+             .text('Sistema Neuropsicocentro - Controle de Estoque', 50, pageHeight - 20, { align: 'center' });
         };
 
         addFooter(1);
