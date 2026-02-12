@@ -213,3 +213,25 @@ sistema-de-estoque/
 ---
 
 💡 **StockMaster** foi desenvolvido para oferecer **controle total, automação e clareza na gestão de estoque** — ideal para empresas que valorizam eficiência e dados precisos.
+
+## NF-e com SEFAZ-CE (download sem redirecionar)
+
+O sistema agora suporta:
+- importacao por arquivo XML (`POST /api/import/xml`)
+- importacao por XML colado (`POST /api/import/raw-xml`)
+- download local da nota (`POST /api/invoices/download`) em `xml` ou `pdf`
+
+Fluxo do download:
+1. tenta buscar o XML ja salvo no banco
+2. se nao houver, tenta consultar a SEFAZ via certificado digital
+3. devolve o arquivo para download direto no frontend (sem abrir portal externo)
+
+Variaveis de ambiente para integracao SEFAZ:
+- `SEFAZ_AMBIENTE` (`1` producao, `2` homologacao)
+- `SEFAZ_CNPJ` ou `SEFAZ_CPF` (documento do interessado)
+- `SEFAZ_CERT_PFX_PATH` + `SEFAZ_CERT_PFX_PASSPHRASE` (opcao 1)
+- `SEFAZ_CERT_CRT_PATH` + `SEFAZ_CERT_KEY_PATH` (opcao 2)
+- `SEFAZ_CERT_CA_PATH` (opcional)
+
+Endpoint util de diagnostico:
+- `GET /api/invoices/sefaz/config-status`
