@@ -1,18 +1,18 @@
 // server/routes.ts - VERSÃO COMPLETA COM RESEND
 import type { Express } from "express";
-import { storage } from "./storage";
+import { storage } from "../storage";
 import { 
   insertProductSchema, insertCategorySchema, insertLocationSchema, 
   insertMovementSchema, insertInventorySchema, insertUserSchema, 
   insertInventoryCountSchema, insertReportSchema,
   cadastroUsuarioSchema, cadastroEmpresaSchema, verificarEmailSchema
-} from "../shared/schema";
+} from "../../shared/schema";
 import { z } from "zod";
-import ReportService from "./utils/reportService";
-import { importRoutes } from "./routes/import";
-import { invoiceRoutes } from "./routes/invoices";
+import ReportService from "../utils/reportService";
+import { importRoutes } from "./import";
+import { invoiceRoutes } from "./invoices";
 import { randomUUID } from "crypto";
-import { EmailService } from "./utils/EmailService";
+import { EmailService } from "../utils/EmailService";
 
 function convertToCSV(data: any): string {
   if (!data) return '';
