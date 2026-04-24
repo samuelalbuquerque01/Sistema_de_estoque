@@ -1,5 +1,5 @@
 import PDFDocument from "pdfkit";
-import { parseNfeXml } from "./nfeXmlService";
+import { parseNfeXml } from "./nfeXmlService.js";
 
 export async function generateNfePdfFromXml(xmlContent: string): Promise<Buffer> {
   const nfe = await parseNfeXml(xmlContent);

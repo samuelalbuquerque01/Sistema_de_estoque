@@ -8,14 +8,14 @@ import {
   type NfeData, type InsertNfeData,
   type Empresa, type InsertEmpresa, type EmailVerificacao, type InsertEmailVerificacao,
   type CadastroUsuario, type CadastroEmpresa
-} from "../shared/schema";
+} from "../shared/schema.js";
 import { randomUUID } from "crypto";
-import { db } from "./db";
+import { db } from "./db.js";
 import { 
   users, products, categories, locations, movements, inventories, 
   inventoryCounts, reports, importHistory, nfeProducts, nfeData,
   empresas, emailVerificacoes
-} from "../shared/schema";
+} from "../shared/schema.js";
 import { eq, and, desc, sql } from "drizzle-orm";
 
 export interface IStorage {
