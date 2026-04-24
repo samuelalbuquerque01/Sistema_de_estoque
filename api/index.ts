@@ -1,5 +1,4 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import app from "../server/app";
 
 function buildQueryString(url: URL): string {
   const params = new URLSearchParams(url.search);
@@ -17,6 +16,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       req.url = `/api/${route}${buildQueryString(requestUrl)}`;
     }
 
+    const { default: app } = await import("../server/app.ts");
     return app(req as any, res as any);
   } catch (error) {
     res.statusCode = 500;
