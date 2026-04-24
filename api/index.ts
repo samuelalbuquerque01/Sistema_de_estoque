@@ -16,7 +16,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       req.url = `/api/${route}${buildQueryString(requestUrl)}`;
     }
 
-    const { default: app } = await import("../server/app.js");
+    const { default: app } = await import(new URL("../server/app.ts", import.meta.url).href);
     return app(req as any, res as any);
   } catch (error) {
     res.statusCode = 500;
