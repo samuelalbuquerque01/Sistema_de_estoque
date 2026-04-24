@@ -116,6 +116,27 @@ export function registerRoutes(app: Express): void {
     }
   });
 
+  // Teste de conexão com banco de dados
+  app.get("/api/test/db", async (req, res) => {
+    try {
+      console.log('🧪 Testing database connection...');
+      const users = await storage.getUsers();
+      console.log('✅ Database connection successful');
+      res.json({
+        status: "connected",
+        timestamp: new Date().toISOString(),
+        users_count: users.length
+      });
+    } catch (error) {
+      console.error('❌ Database test failed:', error);
+      res.status(500).json({
+        status: "disconnected",
+        error: error instanceof Error ? error.message : "Unknown error",
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
   // Rota raiz para verificar se API está online
   app.get("/api", (req, res) => {
     res.json({

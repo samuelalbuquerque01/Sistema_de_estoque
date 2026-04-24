@@ -222,14 +222,19 @@ export class DatabaseStorage implements IStorage {
 
   async getUserByEmail(email: string): Promise<User | undefined> {
     try {
+      console.log('🔍 Querying user by email:', email);
       const result = await db.select().from(users).where(eq(users.email, email));
+      console.log('✅ Query successful, found:', result.length > 0 ? 'user' : 'no user');
       return result[0];
     } catch (error) {
+      console.error('❌ Error querying by email:', error instanceof Error ? error.message : error);
       try {
+        console.log('⚠️ Fallback: Querying user by username:', email);
         const result = await db.select().from(users).where(eq(users.username, email));
+        console.log('✅ Fallback query successful, found:', result.length > 0 ? 'user' : 'no user');
         return result[0];
       } catch (fallbackError) {
-        console.error('Erro ao buscar usuário por email:', error);
+        console.error('❌ Fallback error querying by username:', fallbackError instanceof Error ? fallbackError.message : fallbackError);
         return undefined;
       }
     }
@@ -1802,3 +1807,4 @@ export class DatabaseStorage implements IStorage {
 }
 
 export const storage = new DatabaseStorage();
+console.log('✅ DatabaseStorage instance created and ready');
