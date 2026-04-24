@@ -19,6 +19,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     const appPaths = [
       new URL("../server/app.js", import.meta.url).href,
       new URL("../server/app.ts", import.meta.url).href,
+      new URL("../server/app", import.meta.url).href,
     ];
 
     let app;
@@ -26,10 +27,12 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
     for (const path of appPaths) {
       try {
+        console.log('📦 Trying server app import path:', path);
         const module = await import(path);
         app = module.default;
         break;
       } catch (err) {
+        console.warn('⚠️ Failed to import server app from:', path, 'error:', err instanceof Error ? err.message : err);
         lastError = err;
       }
     }
