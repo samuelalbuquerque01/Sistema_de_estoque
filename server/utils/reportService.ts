@@ -1,7 +1,7 @@
 // server/utils/reportService.ts
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
-import { Product, Movement, Inventory, Category, Location } from '@shared/schema';
+import { Product, Movement, Inventory, Category, Location } from "../../shared/schema";
 
 export class ReportService {
   static async generateExcelReport(data: any, reportType: string): Promise<Buffer> {

@@ -3,7 +3,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { storage } from "../storage";
 import { db } from "../db";
-import { categories } from "@shared/schema";
+import { categories } from "../../shared/schema";
 import { eq } from "drizzle-orm";
 
 const categoryRoutes = Router();

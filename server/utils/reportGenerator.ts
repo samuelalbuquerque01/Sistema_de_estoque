@@ -1,5 +1,5 @@
 // server/utils/reportGenerator.ts
-import { Product, Movement, Inventory, InventoryCount } from "@shared/schema";
+import { Product, Movement, Inventory, InventoryCount } from "../../shared/schema";
 
 export interface ReportData {
   title: string;

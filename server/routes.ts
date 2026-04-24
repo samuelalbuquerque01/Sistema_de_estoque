@@ -6,7 +6,7 @@ import {
   insertMovementSchema, insertInventorySchema, insertUserSchema, 
   insertInventoryCountSchema, insertReportSchema,
   cadastroUsuarioSchema, cadastroEmpresaSchema, verificarEmailSchema
-} from "@shared/schema";
+} from "../shared/schema";
 import { z } from "zod";
 import ReportService from "./utils/reportService";
 import { importRoutes } from "./routes/import";
