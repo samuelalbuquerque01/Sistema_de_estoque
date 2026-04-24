@@ -16,7 +16,28 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       req.url = `/api/${route}${buildQueryString(requestUrl)}`;
     }
 
-    const { default: app } = await import(new URL("../server/app.ts", import.meta.url).href);
+    const appPaths = [
+      new URL("../server/app.js", import.meta.url).href,
+      new URL("../server/app.ts", import.meta.url).href,
+    ];
+
+    let app;
+    let lastError: unknown;
+
+    for (const path of appPaths) {
+      try {
+        const module = await import(path);
+        app = module.default;
+        break;
+      } catch (err) {
+        lastError = err;
+      }
+    }
+
+    if (!app) {
+      throw lastError;
+    }
+
     return app(req as any, res as any);
   } catch (error) {
     res.statusCode = 500;
