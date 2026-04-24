@@ -1,9 +1,9 @@
 // server/routes/categories.ts
 import { Router } from "express";
 import { z } from "zod";
-import { storage } from "../storage";
-import { db } from "../db";
-import { categories } from "../../shared/schema";
+import { storage } from "../storage.js";
+import { db } from "../db.js";
+import { categories } from "../../shared/schema.js";
 import { eq } from "drizzle-orm";
 
 const categoryRoutes = Router();

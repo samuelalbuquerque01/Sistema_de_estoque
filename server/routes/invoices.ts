@@ -1,8 +1,8 @@
 ﻿import { Router } from "express";
 import { z } from "zod";
-import { storage } from "../storage";
-import { downloadNfeXmlFromSefazCe } from "../services/sefazCearaService";
-import { generateNfePdfFromXml } from "../services/nfePdfService";
+import { storage } from "../storage.js";
+import { downloadNfeXmlFromSefazCe } from "../services/sefazCearaService.js";
+import { generateNfePdfFromXml } from "../services/nfePdfService.js";
 
 const invoiceRoutes = Router();
 
