@@ -55,6 +55,8 @@ invoiceRoutes.post("/download", async (req, res) => {
 
 invoiceRoutes.get("/sefaz/config-status", (_req, res) => {
   const hasCert =
+    Boolean(process.env.SEFAZ_CERT_PFX_BASE64) ||
+    (Boolean(process.env.SEFAZ_CERT_CRT_BASE64) && Boolean(process.env.SEFAZ_CERT_KEY_BASE64)) ||
     Boolean(process.env.SEFAZ_CERT_PFX_PATH) ||
     (Boolean(process.env.SEFAZ_CERT_CRT_PATH) && Boolean(process.env.SEFAZ_CERT_KEY_PATH));
   const hasTaxId = Boolean(process.env.SEFAZ_CNPJ || process.env.SEFAZ_CPF);

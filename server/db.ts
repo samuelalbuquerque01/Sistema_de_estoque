@@ -1,25 +1,27 @@
-// client/server/db.ts - VERSÃO CORRIGIDA DEFINITIVA PARA RENDER
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "@shared/schema";
 
-// ✅ CORREÇÃO CRÍTICA: Configuração específica para Render
-const databaseUrl = process.env.DATABASE_URL;
+const localFallbackUrl = "postgresql://postgres:postgres@localhost:5432/neuropsicocentro";
+const databaseUrl =
+  process.env.DATABASE_URL ||
+  (process.env.NODE_ENV !== "production" ? localFallbackUrl : undefined);
 
 if (!databaseUrl) {
-  console.warn("DATABASE_URL não configurada - usando configuração local para desenvolvimento");
+  throw new Error("DATABASE_URL nao configurada.");
 }
 
-// Configuração otimizada para Render
-const client = postgres(
-  databaseUrl || "postgresql://postgres:postgres@localhost:5432/neuropsicocentro",
-  {
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-    idle_timeout: 20,
-    max_lifetime: 60 * 30,
-    max: 10,
-    connect_timeout: 10
-  }
-);
+const isLocalDatabase = /(localhost|127\.0\.0\.1)/i.test(databaseUrl);
+const isSupabasePooler =
+  databaseUrl.includes("pooler.supabase.com") || /:6543(?:\/|\?)/.test(databaseUrl);
+
+const client = postgres(databaseUrl, {
+  ssl: isLocalDatabase ? false : "require",
+  prepare: !isSupabasePooler,
+  idle_timeout: process.env.VERCEL ? 5 : 20,
+  max_lifetime: 60 * 30,
+  max: process.env.VERCEL ? 1 : 10,
+  connect_timeout: 10,
+});
 
 export const db = drizzle(client, { schema });

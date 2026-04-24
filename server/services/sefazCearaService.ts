@@ -26,6 +26,11 @@ const readIfExists = (path: string | undefined): Buffer | undefined => {
   return fs.readFileSync(path);
 };
 
+const readBase64 = (value: string | undefined): Buffer | undefined => {
+  if (!value) return undefined;
+  return Buffer.from(value, "base64");
+};
+
 const loadCertConfig = (): CertConfig => {
   const pfxPath = process.env.SEFAZ_CERT_PFX_PATH;
   const certPath = process.env.SEFAZ_CERT_CRT_PATH;
@@ -33,11 +38,11 @@ const loadCertConfig = (): CertConfig => {
   const caPath = process.env.SEFAZ_CERT_CA_PATH;
 
   return {
-    pfx: readIfExists(pfxPath),
+    pfx: readBase64(process.env.SEFAZ_CERT_PFX_BASE64) ?? readIfExists(pfxPath),
     passphrase: process.env.SEFAZ_CERT_PFX_PASSPHRASE,
-    cert: readIfExists(certPath),
-    key: readIfExists(keyPath),
-    ca: readIfExists(caPath),
+    cert: readBase64(process.env.SEFAZ_CERT_CRT_BASE64) ?? readIfExists(certPath),
+    key: readBase64(process.env.SEFAZ_CERT_KEY_BASE64) ?? readIfExists(keyPath),
+    ca: readBase64(process.env.SEFAZ_CERT_CA_BASE64) ?? readIfExists(caPath),
   };
 };
 
