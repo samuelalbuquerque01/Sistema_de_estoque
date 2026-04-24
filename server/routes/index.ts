@@ -371,6 +371,7 @@ export function registerRoutes(app: Express): void {
   // Rotas de autenticação
   app.post("/api/auth/login", async (req, res) => {
     try {
+      console.log('🔐 Login attempt with body:', req.body);
       const { email, password } = req.body;
       
       if (!email || !password) {
@@ -380,7 +381,9 @@ export function registerRoutes(app: Express): void {
         });
       }
       
+      console.log('🔍 Searching for user:', email);
       const user = await storage.getUserByEmail(email);
+      console.log('👤 User found:', user ? 'yes' : 'no');
       
       if (!user) {
         return res.status(401).json({ 
@@ -407,15 +410,18 @@ export function registerRoutes(app: Express): void {
       
       const { password: _, ...userWithoutPassword } = user;
       
+      console.log('✅ Login successful for:', email);
       res.json({
         ...userWithoutPassword,
         message: "Login realizado com sucesso"
       });
       
     } catch (error) {
+      console.error('❌ Login error:', error);
       res.status(500).json({ 
         error: "Erro interno do servidor",
-        message: error instanceof Error ? error.message : 'Erro desconhecido'
+        message: error instanceof Error ? error.message : 'Erro desconhecido',
+        stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : 'No stack') : undefined
       });
     }
   });
