@@ -52,7 +52,9 @@ function AuthenticatedLayout() {
           <main className="flex-1 overflow-auto p-6">
             <Switch>
               <Route path="/" component={Dashboard} />
-              <Route path="/produtos" component={Produtos} />
+              <Route path="/produtos">
+                <Produtos />
+              </Route>
               <Route path="/equipamentos" component={Equipamentos} />
               <Route path="/insumos" component={Insumos} />
               <Route path="/ferramentas" component={Ferramentas} />

@@ -47,6 +47,7 @@ function getStatusBadge(quantity: number, minQuantity: number) {
 
 function getCategoryTypeBadge(type: string) {
   const typeConfig = {
+    produto: { label: "Produto", color: "bg-slate-100 text-slate-800 border-slate-200" },
     limpeza: { label: "Limpeza", color: "bg-blue-100 text-blue-800 border-blue-200" },
     ferramenta: { label: "Ferramenta", color: "bg-orange-100 text-orange-800 border-orange-200" },
     insumo: { label: "Insumo", color: "bg-purple-100 text-purple-800 border-purple-200" },
@@ -115,7 +116,7 @@ export default function ProductTable({ products, onView, onEdit, onDelete }: Pro
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[120px]">Código</TableHead>
+              <TableHead className="w-[140px]">Patrimônio</TableHead>
               <TableHead className="min-w-[200px]">Produto</TableHead>
               <TableHead className="w-[120px]">Categoria</TableHead>
               <TableHead className="w-[100px]">Tipo</TableHead>

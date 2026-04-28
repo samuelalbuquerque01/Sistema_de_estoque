@@ -1,28 +1,105 @@
-// server/migrate.ts - VERSÃO CORRIGIDA
 import { db } from "./db";
 
+const typedTables = [
+  {
+    itemType: "produto",
+    tableName: "general_products",
+  },
+  {
+    itemType: "equipamento",
+    tableName: "equipment_products",
+  },
+  {
+    itemType: "insumo",
+    tableName: "supply_products",
+  },
+  {
+    itemType: "ferramenta",
+    tableName: "tool_products",
+  },
+  {
+    itemType: "limpeza",
+    tableName: "cleaning_products",
+  },
+] as const;
+
+async function run(sql: string) {
+  await db.execute(sql);
+}
+
+async function createTypedTable(tableName: string) {
+  await run(`
+    CREATE TABLE IF NOT EXISTS ${tableName} (
+      product_id TEXT PRIMARY KEY REFERENCES products(id),
+      code TEXT NOT NULL,
+      name TEXT NOT NULL,
+      category_id TEXT REFERENCES categories(id),
+      location_id TEXT REFERENCES locations(id),
+      quantity INTEGER NOT NULL DEFAULT 0,
+      min_quantity INTEGER NOT NULL DEFAULT 0,
+      unit_price TEXT,
+      description TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+}
+
+async function syncTypedTable(tableName: string, itemType: string) {
+  await run(`
+    INSERT INTO ${tableName} (
+      product_id,
+      code,
+      name,
+      category_id,
+      location_id,
+      quantity,
+      min_quantity,
+      unit_price,
+      description,
+      created_at
+    )
+    SELECT
+      id,
+      code,
+      name,
+      category_id,
+      location_id,
+      quantity,
+      min_quantity,
+      unit_price,
+      description,
+      created_at
+    FROM products
+    WHERE item_type = '${itemType}'
+    ON CONFLICT (product_id) DO UPDATE SET
+      code = EXCLUDED.code,
+      name = EXCLUDED.name,
+      category_id = EXCLUDED.category_id,
+      location_id = EXCLUDED.location_id,
+      quantity = EXCLUDED.quantity,
+      min_quantity = EXCLUDED.min_quantity,
+      unit_price = EXCLUDED.unit_price,
+      description = EXCLUDED.description,
+      created_at = EXCLUDED.created_at
+  `);
+}
+
 export async function migrate() {
-  console.log('Verificando/Criando tabelas do banco de dados...');
-  
+  console.log("Verificando/Criando tabelas do banco de dados...");
+
   try {
-    // Criar tabelas essenciais primeiro
     const tables = [
-      // Categories
       `CREATE TABLE IF NOT EXISTS categories (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         type TEXT NOT NULL,
         description TEXT
       )`,
-      
-      // Locations  
       `CREATE TABLE IF NOT EXISTS locations (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         description TEXT
       )`,
-      
-      // Users
       `CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
         username TEXT NOT NULL UNIQUE,
@@ -37,12 +114,11 @@ export async function migrate() {
         data_verificacao TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )`,
-      
-      // Products
       `CREATE TABLE IF NOT EXISTS products (
         id TEXT PRIMARY KEY,
         code TEXT NOT NULL,
         name TEXT NOT NULL,
+        item_type TEXT NOT NULL DEFAULT 'produto',
         category_id TEXT REFERENCES categories(id),
         location_id TEXT REFERENCES locations(id),
         quantity INTEGER NOT NULL DEFAULT 0,
@@ -51,8 +127,6 @@ export async function migrate() {
         description TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )`,
-      
-      // Movements
       `CREATE TABLE IF NOT EXISTS movements (
         id TEXT PRIMARY KEY,
         product_id TEXT REFERENCES products(id),
@@ -62,8 +136,6 @@ export async function migrate() {
         notes TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )`,
-      
-      // Inventories
       `CREATE TABLE IF NOT EXISTS inventories (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
@@ -72,8 +144,6 @@ export async function migrate() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         finished_at TIMESTAMP
       )`,
-      
-      // Inventory Counts
       `CREATE TABLE IF NOT EXISTS inventory_counts (
         id TEXT PRIMARY KEY,
         inventory_id TEXT NOT NULL REFERENCES inventories(id),
@@ -83,8 +153,6 @@ export async function migrate() {
         notes TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )`,
-      
-      // Empresas
       `CREATE TABLE IF NOT EXISTS empresas (
         id TEXT PRIMARY KEY,
         nome TEXT NOT NULL,
@@ -105,11 +173,9 @@ export async function migrate() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )`,
-      
-      // Email Verificacoes
       `CREATE TABLE IF NOT EXISTS email_verificacoes (
         id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL REFERENCES users(id),
+        user_id TEXT REFERENCES users(id),
         email TEXT NOT NULL,
         token TEXT NOT NULL UNIQUE,
         tipo TEXT NOT NULL,
@@ -117,8 +183,6 @@ export async function migrate() {
         expira_em TIMESTAMP NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )`,
-      
-      // Reports
       `CREATE TABLE IF NOT EXISTS reports (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
@@ -130,8 +194,6 @@ export async function migrate() {
         file_size INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )`,
-      
-      // Import History
       `CREATE TABLE IF NOT EXISTS import_history (
         id TEXT PRIMARY KEY,
         file_name TEXT NOT NULL,
@@ -151,8 +213,6 @@ export async function migrate() {
         error_message TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )`,
-      
-      // NFE Data
       `CREATE TABLE IF NOT EXISTS nfe_data (
         id TEXT PRIMARY KEY,
         import_history_id TEXT NOT NULL REFERENCES import_history(id),
@@ -165,8 +225,6 @@ export async function migrate() {
         raw_data JSONB DEFAULT '{}',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )`,
-      
-      // NFE Products
       `CREATE TABLE IF NOT EXISTS nfe_products (
         id TEXT PRIMARY KEY,
         import_history_id TEXT NOT NULL REFERENCES import_history(id),
@@ -179,64 +237,76 @@ export async function migrate() {
         unit TEXT,
         total_value TEXT,
         nfe_data JSONB DEFAULT '{}'
-      )`
+      )`,
     ];
 
-    for (const sql of tables) {
-      try {
-        await db.execute(sql);
-        console.log('Tabela criada/verificada');
-      } catch (error: any) {
-        if (error.message?.includes('already exists')) {
-          console.log('Tabela já existe');
-        } else {
-          console.log('Erro ao criar tabela:', error.message);
-        }
-      }
+    for (const statement of tables) {
+      await run(statement);
     }
 
-    // Inserir dados iniciais
-    console.log('Inserindo dados iniciais...');
-    
-    // Categorias padrão
+    await run(`ALTER TABLE categories ADD COLUMN IF NOT EXISTS description TEXT`);
+    await run(`ALTER TABLE products ADD COLUMN IF NOT EXISTS item_type TEXT`);
+    await run(`ALTER TABLE products ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
+
+    await run(`
+      UPDATE products AS p
+      SET item_type = c.type
+      FROM categories AS c
+      WHERE p.category_id = c.id
+        AND (p.item_type IS NULL OR p.item_type = '')
+    `);
+    await run(`UPDATE products SET item_type = 'produto' WHERE item_type IS NULL OR item_type = ''`);
+
+    for (const typedTable of typedTables) {
+      await createTypedTable(typedTable.tableName);
+    }
+
     const categoriesData = [
-      ['limpeza', 'Produtos de Limpeza', 'limpeza', 'Produtos para limpeza e higienização'],
-      ['ferramenta', 'Ferramentas', 'ferramenta', 'Ferramentas manuais e elétricas'],
-      ['insumo', 'Insumos', 'insumo', 'Matérias-primas e insumos para produção'],
-      ['equipamento', 'Equipamentos', 'equipamento', 'Máquinas e equipamentos'],
-      ['material', 'Materiais', 'material', 'Materiais diversos'],
-      ['outros', 'Outros', 'outros', 'Outros tipos de produtos']
+      ["produto-geral", "Produtos Gerais", "produto", "Categoria padrao para produtos"],
+      ["equipamento-geral", "Equipamentos Gerais", "equipamento", "Categoria padrao para equipamentos"],
+      ["insumo-geral", "Insumos Gerais", "insumo", "Categoria padrao para insumos"],
+      ["ferramenta-geral", "Ferramentas Gerais", "ferramenta", "Categoria padrao para ferramentas"],
+      ["limpeza-geral", "Materiais de Limpeza", "limpeza", "Categoria padrao para limpeza"],
     ];
 
-    for (const category of categoriesData) {
-      try {
-        await db.execute(
-          `INSERT INTO categories (id, name, type, description) 
-           VALUES ($1, $2, $3, $4) 
-           ON CONFLICT (id) DO NOTHING`,
-          category
-        );
-      } catch (error) {
-        // Ignora erros de inserção
-      }
+    for (const [id, name, type, description] of categoriesData) {
+      await run(`
+        INSERT INTO categories (id, name, type, description)
+        VALUES ('${id}', '${name}', '${type}', '${description}')
+        ON CONFLICT (id) DO NOTHING
+      `);
     }
 
-    // Usuário admin
-    try {
-      await db.execute(
-        `INSERT INTO users (id, username, password, name, email, tipo, role, email_verificado) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
-         ON CONFLICT (email) DO NOTHING`,
-        ['admin-123', 'admin', 'admin123', 'Administrador', 'admin@neuropsicocentro.com', 'individual', 'super_admin', true]
-      );
-    } catch (error) {
-      // Ignora erros de inserção
+    for (const typedTable of typedTables) {
+      await syncTypedTable(typedTable.tableName, typedTable.itemType);
     }
 
-    console.log('Dados iniciais inseridos');
-    console.log('Migração concluída com sucesso!');
+    await run(`
+      INSERT INTO users (
+        id,
+        username,
+        password,
+        name,
+        email,
+        tipo,
+        role,
+        email_verificado
+      )
+      VALUES (
+        'admin-123',
+        'admin',
+        'admin123',
+        'Administrador',
+        'admin@neuropsicocentro.com',
+        'individual',
+        'super_admin',
+        TRUE
+      )
+      ON CONFLICT (email) DO NOTHING
+    `);
 
+    console.log("Migracao concluida com sucesso!");
   } catch (error) {
-    console.error('Erro na migração:', error);
+    console.error("Erro na migracao:", error);
   }
 }

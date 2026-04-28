@@ -5,7 +5,8 @@ import {
   insertProductSchema, insertCategorySchema, insertLocationSchema, 
   insertMovementSchema, insertInventorySchema, insertUserSchema, 
   insertInventoryCountSchema, insertReportSchema,
-  cadastroUsuarioSchema, cadastroEmpresaSchema, verificarEmailSchema
+  cadastroUsuarioSchema, cadastroEmpresaSchema, verificarEmailSchema,
+  inventoryItemTypeSchema
 } from "../../shared/schema.js";
 import { z } from "zod";
 import ReportService from "../utils/reportService.js";
@@ -20,7 +21,7 @@ function convertToCSV(data: any): string {
   
   if (Array.isArray(data) && data.length > 0) {
     const headers = Object.keys(data[0]).join(';');
-    const rows = data.map(row => 
+    const rows = data.map((row: any) => 
       Object.values(row).map(value => {
         const strValue = String(value || '');
         return `"${strValue.replace(/"/g, '""')}"`;
@@ -43,7 +44,7 @@ function convertToCSV(data: any): string {
       sections.push('DADOS');
       const headers = Object.keys(data.data[0]).join(';');
       sections.push(headers);
-      data.data.forEach(row => {
+      data.data.forEach((row: any) => {
         const rowValues = Object.values(row).map(value => 
           `"${String(value || '').replace(/"/g, '""')}"`
         ).join(';');
@@ -78,6 +79,48 @@ function sendXmlResponse(res: any, nfeData: any, importItem: any) {
 
 export function registerRoutes(app: Express): void {
   console.log('Inicializando serviços...');
+  
+  // ✅ Setup Admin - Rota temporária para criar admin inicial
+  app.post("/api/setup-admin", async (req, res) => {
+    try {
+      const existingUsers = await storage.getUsers();
+      
+      if (existingUsers.length > 0) {
+        return res.status(400).json({ 
+          error: "Admin já existe",
+          message: "Já existem usuários cadastrados no sistema"
+        });
+      }
+      
+      const adminUser = await storage.createUser({
+        username: "admin",
+        email: "admin@neuropsicocentro.com.br",
+        password: "admin123",
+        name: "Admin",
+        tipo: "individual",
+        role: "admin",
+        emailVerificado: true
+      });
+      
+      res.json({
+        success: true,
+        message: "Admin criado com sucesso",
+        user: {
+          id: adminUser.id,
+          email: adminUser.email,
+          name: adminUser.name,
+          role: adminUser.role
+        }
+      });
+      
+    } catch (error) {
+      console.error('Erro ao criar admin:', error);
+      res.status(500).json({ 
+        error: "Erro interno",
+        message: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    }
+  });
   
   // ✅ Health Check - DEVE SER A PRIMEIRA ROTA
   app.get("/api/health", async (req, res) => {
@@ -796,11 +839,16 @@ export function registerRoutes(app: Express): void {
   // Produtos
   app.get("/api/products", async (req, res) => {
     try {
-      console.log('Acessando lista de produtos...');
-      const products = await storage.getProducts();
+      const itemType = req.query.itemType
+        ? inventoryItemTypeSchema.parse(req.query.itemType)
+        : undefined;
+      const products = await storage.getProducts(itemType);
       res.json(products);
     } catch (error) {
       console.error('Erro ao buscar produtos:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Tipo de cadastro inválido" });
+      }
       res.status(500).json({ error: "Erro interno do servidor" });
     }
   });
@@ -822,6 +870,9 @@ export function registerRoutes(app: Express): void {
       res.status(201).json(product);
     } catch (error) {
       if (error instanceof z.ZodError) return res.status(400).json({ error: "Dados inválidos", details: error.errors });
+      if (error instanceof Error) {
+        return res.status(400).json({ error: error.message });
+      }
       res.status(500).json({ error: "Erro interno do servidor" });
     }
   });
@@ -833,6 +884,9 @@ export function registerRoutes(app: Express): void {
       res.json(product);
     } catch (error) {
       if (error instanceof z.ZodError) return res.status(400).json({ error: "Dados inválidos", details: error.errors });
+      if (error instanceof Error) {
+        return res.status(400).json({ error: error.message });
+      }
       res.status(500).json({ error: "Erro interno do servidor" });
     }
   });
@@ -853,9 +907,15 @@ export function registerRoutes(app: Express): void {
   // Categorias
   app.get("/api/categories", async (req, res) => {
     try {
-      const categories = await storage.getCategories();
+      const itemType = req.query.type
+        ? inventoryItemTypeSchema.parse(req.query.type)
+        : undefined;
+      const categories = await storage.getCategories(itemType);
       res.json(categories);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Tipo de categoria inválido" });
+      }
       res.status(500).json({ error: "Erro interno do servidor" });
     }
   });
@@ -867,6 +927,9 @@ export function registerRoutes(app: Express): void {
       res.status(201).json(category);
     } catch (error) {
       if (error instanceof z.ZodError) return res.status(400).json({ error: "Dados inválidos", details: error.errors });
+      if (error instanceof Error) {
+        return res.status(400).json({ error: error.message });
+      }
       res.status(500).json({ error: "Erro interno do servidor" });
     }
   });

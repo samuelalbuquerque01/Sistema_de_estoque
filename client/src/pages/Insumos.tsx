@@ -2,8 +2,8 @@ import Produtos from "./Produtos";
 
 export default function Insumos() {
   return (
-    <Produtos 
-      category="insumo"  // ← deve ser "insumo" 
+    <Produtos
+      itemType="insumo"
       title="Insumos"
       description="Gerenciar insumos do estoque"
     />

@@ -7,14 +7,16 @@ import {
   type ImportHistory, type InsertImportHistory, type NfeProduct, type InsertNfeProduct,
   type NfeData, type InsertNfeData,
   type Empresa, type InsertEmpresa, type EmailVerificacao, type InsertEmailVerificacao,
-  type CadastroUsuario, type CadastroEmpresa
+  type CadastroUsuario, type CadastroEmpresa, type InventoryItemType,
+  inventoryItemTypes
 } from "../shared/schema.js";
 import { randomUUID } from "crypto";
 import { db } from "./db.js";
 import { 
   users, products, categories, locations, movements, inventories, 
   inventoryCounts, reports, importHistory, nfeProducts, nfeData,
-  empresas, emailVerificacoes
+  empresas, emailVerificacoes, generalProducts, equipmentProducts,
+  supplyProducts, toolProducts, cleaningProducts
 } from "../shared/schema.js";
 import { eq, and, desc, sql } from "drizzle-orm";
 
@@ -24,13 +26,14 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   getUsers(): Promise<User[]>;
-  getProducts(): Promise<Product[]>;
+  getProducts(itemType?: InventoryItemType): Promise<Product[]>;
+  getProductsByItemType(itemType: InventoryItemType): Promise<Product[]>;
   getProduct(id: string): Promise<Product | undefined>;
   createProduct(product: InsertProduct): Promise<Product>;
   updateProduct(id: string, product: Partial<InsertProduct>): Promise<Product>;
   deleteProduct(id: string): Promise<void>;
   getProductsByCategory(categoryId: string): Promise<Product[]>;
-  getCategories(): Promise<Category[]>;
+  getCategories(type?: InventoryItemType): Promise<Category[]>;
   getCategory(id: string): Promise<Category | undefined>;
   createCategory(category: InsertCategory): Promise<Category>;
   getLocations(): Promise<Location[]>;
@@ -100,60 +103,108 @@ export interface IStorage {
   getEmpresaUsers(empresaId: string): Promise<User[]>;
 }
 
+const typedProductTables = {
+  produto: generalProducts,
+  equipamento: equipmentProducts,
+  insumo: supplyProducts,
+  ferramenta: toolProducts,
+  limpeza: cleaningProducts,
+} as const;
+
 export class DatabaseStorage implements IStorage {
+  private getTypedTable(itemType: InventoryItemType) {
+    return typedProductTables[itemType];
+  }
+
+  private async syncTypedProduct(product: Product): Promise<void> {
+    const typedRecord = {
+      productId: product.id,
+      code: product.code,
+      name: product.name,
+      categoryId: product.categoryId,
+      locationId: product.locationId,
+      quantity: product.quantity,
+      minQuantity: product.minQuantity,
+      unitPrice: product.unitPrice,
+      description: product.description,
+      createdAt: product.createdAt,
+    };
+
+    for (const [type, table] of Object.entries(typedProductTables)) {
+      if (type === product.itemType) {
+        const existing = await db.select().from(table).where(eq(table.productId, product.id));
+
+        if (existing.length > 0) {
+          await db.update(table).set(typedRecord).where(eq(table.productId, product.id));
+        } else {
+          await db.insert(table).values(typedRecord);
+        }
+      } else {
+        await db.delete(table).where(eq(table.productId, product.id));
+      }
+    }
+  }
+
+  private async deleteTypedProduct(productId: string): Promise<void> {
+    for (const table of Object.values(typedProductTables)) {
+      await db.delete(table).where(eq(table.productId, productId));
+    }
+  }
+
+  private async ensureUniquePatrimony(code: string, ignoreProductId?: string): Promise<void> {
+    const existing = await db.select().from(products).where(eq(products.code, code));
+    const conflict = existing.find((product) => product.id !== ignoreProductId);
+
+    if (conflict) {
+      throw new Error("Ja existe um item cadastrado com este numero de patrimonio");
+    }
+  }
+
   async ensureDefaultCategories(): Promise<void> {
     try {
       const existingCategories = await this.getCategories();
       
-      if (existingCategories.length === 0) {
-        console.log('Criando categorias padrão...');
-        const defaultCategories = [
-          {
-            id: 'limpeza',
-            name: 'Produtos de Limpeza',
-            type: 'limpeza',
-            description: 'Produtos para limpeza e higienização'
-          },
-          {
-            id: 'ferramenta', 
-            name: 'Ferramentas',
-            type: 'ferramenta',
-            description: 'Ferramentas manuais e elétricas'
-          },
-          {
-            id: 'insumo',
-            name: 'Insumos', 
-            type: 'insumo',
-            description: 'Matérias-primas e insumos para produção'
-          },
-          {
-            id: 'equipamento',
-            name: 'Equipamentos',
-            type: 'equipamento', 
-            description: 'Máquinas e equipamentos'
-          },
-          {
-            id: 'material',
-            name: 'Materiais',
-            type: 'material',
-            description: 'Materiais diversos'
-          },
-          {
-            id: 'outros',
-            name: 'Outros',
-            type: 'outros',
-            description: 'Outros tipos de produtos'
-          }
-        ];
+      const defaultCategories = [
+        {
+          id: "produto-geral",
+          name: "Produtos Gerais",
+          type: "produto",
+          description: "Categoria padrão para produtos",
+        },
+        {
+          id: "equipamento-geral",
+          name: "Equipamentos Gerais",
+          type: "equipamento",
+          description: "Categoria padrão para equipamentos",
+        },
+        {
+          id: "insumo-geral",
+          name: "Insumos Gerais",
+          type: "insumo",
+          description: "Categoria padrão para insumos",
+        },
+        {
+          id: "ferramenta-geral",
+          name: "Ferramentas Gerais",
+          type: "ferramenta",
+          description: "Categoria padrão para ferramentas",
+        },
+        {
+          id: "limpeza-geral",
+          name: "Materiais de Limpeza",
+          type: "limpeza",
+          description: "Categoria padrão para limpeza",
+        },
+      ];
 
-        for (const category of defaultCategories) {
+      for (const category of defaultCategories) {
+        const alreadyExists = existingCategories.some((item) => item.id === category.id);
+        if (!alreadyExists) {
           await db.insert(categories).values(category);
         }
-        
-        console.log('Categorias padrão criadas com sucesso');
-      } else {
-        console.log('Categorias já existem:', existingCategories.length);
       }
+
+      console.log("Categorias verificadas com sucesso");
     } catch (error) {
       console.error('Erro ao criar categorias padrão:', error);
     }
@@ -272,11 +323,39 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getProducts(): Promise<Product[]> {
+  async getProducts(itemType?: InventoryItemType): Promise<Product[]> {
     try {
+      if (itemType) {
+        return await this.getProductsByItemType(itemType);
+      }
+
       return await db.select().from(products).orderBy(products.name);
     } catch (error) {
-      console.error('Erro ao buscar produtos:', error);
+      console.error("Erro ao buscar produtos:", error);
+      return [];
+    }
+  }
+
+  async getProductsByItemType(itemType: InventoryItemType): Promise<Product[]> {
+    try {
+      const table = this.getTypedTable(itemType);
+      const typedRows = await db.select().from(table).orderBy(table.name);
+
+      return typedRows.map((row) => ({
+        id: row.productId,
+        code: row.code,
+        name: row.name,
+        itemType,
+        categoryId: row.categoryId,
+        locationId: row.locationId,
+        quantity: row.quantity,
+        minQuantity: row.minQuantity,
+        unitPrice: row.unitPrice,
+        description: row.description,
+        createdAt: row.createdAt,
+      })) as Product[];
+    } catch (error) {
+      console.error("Erro ao buscar produtos por tipo:", error);
       return [];
     }
   }
@@ -293,38 +372,93 @@ export class DatabaseStorage implements IStorage {
 
   async createProduct(insertProduct: InsertProduct): Promise<Product> {
     try {
+      await this.ensureUniquePatrimony(insertProduct.code);
+
+      const category = await this.getCategory(insertProduct.categoryId);
+      if (!category) {
+        throw new Error("Categoria não encontrada");
+      }
+
+      if (category.type !== insertProduct.itemType) {
+        throw new Error("A categoria não pertence a este tipo de cadastro");
+      }
+
       const id = randomUUID();
       const productData = {
         id,
         code: insertProduct.code,
         name: insertProduct.name,
+        itemType: insertProduct.itemType,
         categoryId: insertProduct.categoryId,
         locationId: insertProduct.locationId,
         quantity: insertProduct.quantity,
         minQuantity: insertProduct.minQuantity,
         unitPrice: insertProduct.unitPrice,
         description: insertProduct.description,
-        createdAt: new Date()
+        createdAt: new Date(),
       };
+
       await db.insert(products).values(productData);
-      const result = await db.select().from(products).where(eq(products.id, id));
-      if (!result[0]) throw new Error("Produto não encontrado após criação");
-      return result[0];
+
+      const created = await this.getProduct(id);
+      if (!created) {
+        throw new Error("Produto não encontrado após criação");
+      }
+
+      await this.syncTypedProduct(created);
+      return created;
     } catch (error) {
-      console.error('Erro ao criar produto:', error);
+      console.error("Erro ao criar produto:", error);
+      if (error instanceof Error) {
+        throw error;
+      }
       throw new Error("Erro ao criar produto");
     }
   }
 
   async updateProduct(id: string, productData: Partial<InsertProduct>): Promise<Product> {
     try {
-      const updateData: any = { ...productData };
+      const existing = await this.getProduct(id);
+      if (!existing) {
+        throw new Error("Produto não encontrado");
+      }
+
+      if (productData.code && productData.code !== existing.code) {
+        await this.ensureUniquePatrimony(productData.code, id);
+      }
+
+      const nextItemType = (productData.itemType || existing.itemType) as InventoryItemType;
+      if (!inventoryItemTypes.includes(nextItemType)) {
+        throw new Error("Tipo de cadastro inválido");
+      }
+
+      const nextCategoryId = productData.categoryId || existing.categoryId;
+      if (!nextCategoryId) {
+        throw new Error("Categoria obrigatória");
+      }
+
+      const category = await this.getCategory(nextCategoryId);
+      if (!category) {
+        throw new Error("Categoria não encontrada");
+      }
+
+      if (category.type !== nextItemType) {
+        throw new Error("A categoria não pertence a este tipo de cadastro");
+      }
+
+      const updateData: any = {
+        ...productData,
+        itemType: nextItemType,
+      };
       await db.update(products).set(updateData).where(eq(products.id, id));
+
       const updated = await this.getProduct(id);
-      if (!updated) throw new Error("Product not found");
+      if (!updated) throw new Error("Produto não encontrado");
+
+      await this.syncTypedProduct(updated);
       return updated;
     } catch (error) {
-      console.error('Erro ao atualizar produto:', error);
+      console.error("Erro ao atualizar produto:", error);
       throw error;
     }
   }
@@ -359,6 +493,14 @@ export class DatabaseStorage implements IStorage {
           }
         } catch (inventoryError) {
           throw new Error(`Erro ao excluir contagens de inventário: ${inventoryError}`);
+        }
+
+        try {
+          for (const table of Object.values(typedProductTables)) {
+            await tx.delete(table).where(eq(table.productId, id));
+          }
+        } catch (typedError) {
+          throw new Error(`Erro ao excluir registro da tabela por tipo: ${typedError}`);
         }
 
         try {
@@ -403,8 +545,16 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getCategories(): Promise<Category[]> {
+  async getCategories(type?: InventoryItemType): Promise<Category[]> {
     try {
+      if (type) {
+        return await db
+          .select()
+          .from(categories)
+          .where(eq(categories.type, type))
+          .orderBy(categories.name);
+      }
+
       return await db.select().from(categories).orderBy(categories.name);
     } catch (error) {
       console.error('Erro ao buscar categorias:', error);
@@ -424,12 +574,21 @@ export class DatabaseStorage implements IStorage {
 
   async createCategory(insertCategory: InsertCategory): Promise<Category> {
     try {
+      const existingCategories = await this.getCategories(insertCategory.type as InventoryItemType);
+      const duplicated = existingCategories.find(
+        (category) => category.name.trim().toLowerCase() === insertCategory.name.trim().toLowerCase(),
+      );
+
+      if (duplicated) {
+        throw new Error("Já existe uma categoria com este nome para este tipo");
+      }
+
       const id = randomUUID();
       const categoryData = { 
         id, 
-        name: insertCategory.name, 
+        name: insertCategory.name.trim(), 
         type: insertCategory.type, 
-        description: insertCategory.description 
+        description: insertCategory.description?.trim() || null,
       };
       await db.insert(categories).values(categoryData);
       return categoryData as Category;

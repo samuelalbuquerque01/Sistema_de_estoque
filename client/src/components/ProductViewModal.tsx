@@ -30,6 +30,7 @@ interface ProductViewModalProps {
 
 function getCategoryTypeConfig(type: string) {
   const config = {
+    produto: { label: "Produto", color: "bg-slate-100 text-slate-800 border-slate-200" },
     limpeza: { label: "Produto de Limpeza", color: "bg-blue-100 text-blue-800 border-blue-200" },
     ferramenta: { label: "Ferramenta", color: "bg-orange-100 text-orange-800 border-orange-200" },
     insumo: { label: "Insumo", color: "bg-purple-100 text-purple-800 border-purple-200" },
@@ -100,7 +101,7 @@ export default function ProductViewModal({ product, isOpen, onClose }: ProductVi
                 <h3 className={`font-semibold text-lg ${statusInfo.textColor}`}>
                   {product.name}
                 </h3>
-                <p className="text-sm text-gray-600">Código: {product.code}</p>
+                <p className="text-sm text-gray-600">Patrimônio: {product.code}</p>
                 <p className="text-xs text-gray-500 mt-1">{statusInfo.description}</p>
               </div>
             </div>
@@ -118,7 +119,7 @@ export default function ProductViewModal({ product, isOpen, onClose }: ProductVi
               
               <div className="space-y-3 bg-gray-50 rounded-lg p-4 border">
                 <div className="flex justify-between items-center py-2 border-b">
-                  <span className="text-sm font-medium text-gray-600">Código:</span>
+                  <span className="text-sm font-medium text-gray-600">Patrimônio:</span>
                   <span className="text-sm font-mono font-medium text-gray-900">{product.code}</span>
                 </div>
                 
@@ -249,10 +250,10 @@ export default function ProductViewModal({ product, isOpen, onClose }: ProductVi
           <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
             <h5 className="font-semibold text-blue-900 text-sm mb-2">Informações do Sistema</h5>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-blue-700">
-              <div>• Tipo definido pela categoria: <strong>{categoryTypeConfig.label}</strong></div>
+              <div>• Tipo do cadastro: <strong>{categoryTypeConfig.label}</strong></div>
               <div>• Status calculado automaticamente</div>
               <div>• Valores atualizados em tempo real</div>
-              <div>• Código único: <strong>{product.code}</strong></div>
+              <div>• Patrimônio informado manualmente: <strong>{product.code}</strong></div>
             </div>
           </div>
         </div>

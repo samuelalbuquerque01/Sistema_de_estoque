@@ -1,4 +1,3 @@
-// components/ProductForm.tsx
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -24,7 +23,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 const productSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
-  code: z.string().min(1, "Código é obrigatório"),
+  code: z.string().min(1, "Número do patrimônio é obrigatório"),
   categoryId: z.string().min(1, "Categoria é obrigatória"),
   locationId: z.string().min(1, "Local é obrigatório"),
   quantity: z.coerce.number().min(0, "Quantidade deve ser maior ou igual a 0"),
@@ -33,22 +32,31 @@ const productSchema = z.object({
   description: z.string().optional(),
 });
 
+type InventoryItemType =
+  | "produto"
+  | "equipamento"
+  | "insumo"
+  | "ferramenta"
+  | "limpeza";
+
 type ProductFormValues = z.infer<typeof productSchema>;
 
 interface Category {
   id: string;
   name: string;
-  type: string;
+  type: InventoryItemType;
 }
 
 interface Location {
   id: string;
   name: string;
-  description?: string;
+  description?: string | null;
 }
 
 interface ProductFormProps {
-  onSubmit: (data: ProductFormValues) => void;
+  itemType: InventoryItemType;
+  onSubmit: (data: ProductFormValues) => void | Promise<void>;
+  onCreateCategory: (name: string) => Promise<Category>;
   onCancel?: () => void;
   defaultValues?: Partial<ProductFormValues>;
   categories: Category[];
@@ -56,67 +64,67 @@ interface ProductFormProps {
   isEditing?: boolean;
 }
 
-// Categorias pré-definidas para simplificar
-const predefinedCategories = [
-  { id: "limpeza", name: "Produtos de Limpeza", type: "limpeza" },
-  { id: "ferramenta", name: "Ferramentas", type: "ferramenta" },
-  { id: "insumo", name: "Insumos", type: "insumo" },
-  { id: "equipamento", name: "Equipamentos", type: "equipamento" },
-  { id: "material", name: "Materiais", type: "material" },
-  { id: "outros", name: "Outros", type: "outros" },
-];
+const typeLabels: Record<InventoryItemType, string> = {
+  produto: "produto",
+  equipamento: "equipamento",
+  insumo: "insumo",
+  ferramenta: "ferramenta",
+  limpeza: "material de limpeza",
+};
 
-export default function ProductForm({ 
-  onSubmit, 
+export default function ProductForm({
+  itemType,
+  onSubmit,
+  onCreateCategory,
   onCancel,
   defaultValues,
-  categories = predefinedCategories, // Usa as categorias pré-definidas por padrão
+  categories,
   locations,
-  isEditing = false
+  isEditing = false,
 }: ProductFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
-    defaultValues: defaultValues || {
-      name: "",
-      code: "",
-      categoryId: "",
-      locationId: "",
-      quantity: 0,
-      minQuantity: 0,
-      unitPrice: 0,
-      description: "",
+    defaultValues: {
+      name: defaultValues?.name || "",
+      code: defaultValues?.code || "",
+      categoryId: defaultValues?.categoryId || "",
+      locationId: defaultValues?.locationId || "",
+      quantity: defaultValues?.quantity ?? 0,
+      minQuantity: defaultValues?.minQuantity ?? 0,
+      unitPrice: defaultValues?.unitPrice ?? 0,
+      description: defaultValues?.description || "",
     },
   });
 
   const handleSubmit = async (data: ProductFormValues) => {
     try {
       setIsSubmitting(true);
-      
-      const dataToSubmit = {
+      await onSubmit({
         ...data,
-        unitPrice: data.unitPrice.toString()
-      };
-      
-      await onSubmit(dataToSubmit);
-    } catch (error) {
-      console.error('Erro no submit do formulário:', error);
+        unitPrice: Number(data.unitPrice),
+      });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const generateAutoCode = () => {
-    const baseCode = 'PROD';
-    const timestamp = Date.now().toString().slice(-4);
-    const random = Math.floor(Math.random() * 100).toString().padStart(2, '0');
-    return `${baseCode}-${timestamp}${random}`;
-  };
+  const handleCreateCategory = async () => {
+    const trimmedName = newCategoryName.trim();
+    if (!trimmedName) {
+      return;
+    }
 
-  const handleGenerateCode = () => {
-    if (!isEditing && !form.getValues('code')) {
-      form.setValue('code', generateAutoCode());
+    try {
+      setIsCreatingCategory(true);
+      const newCategory = await onCreateCategory(trimmedName);
+      form.setValue("categoryId", newCategory.id, { shouldValidate: true });
+      setNewCategoryName("");
+    } finally {
+      setIsCreatingCategory(false);
     }
   };
 
@@ -129,13 +137,9 @@ export default function ProductForm({
             name="name"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Nome do Produto *</FormLabel>
+                <FormLabel>Nome *</FormLabel>
                 <FormControl>
-                  <Input 
-                    placeholder="Digite o nome do produto" 
-                    {...field} 
-                    data-testid="input-name" 
-                  />
+                  <Input placeholder="Digite o nome do item" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -147,27 +151,10 @@ export default function ProductForm({
             name="code"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Código *</FormLabel>
-                <div className="flex gap-2">
-                  <FormControl>
-                    <Input 
-                      placeholder="Ex: PROD-001" 
-                      {...field} 
-                      data-testid="input-code" 
-                      readOnly={isEditing}
-                    />
-                  </FormControl>
-                  {!isEditing && (
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      onClick={handleGenerateCode}
-                      className="whitespace-nowrap"
-                    >
-                      Gerar
-                    </Button>
-                  )}
-                </div>
+                <FormLabel>Número do Patrimônio *</FormLabel>
+                <FormControl>
+                  <Input placeholder="Digite o patrimônio manualmente" {...field} />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
@@ -179,13 +166,9 @@ export default function ProductForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Categoria *</FormLabel>
-                <Select 
-                  onValueChange={field.onChange} 
-                  defaultValue={field.value}
-                  value={field.value}
-                >
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
-                    <SelectTrigger data-testid="select-category">
+                    <SelectTrigger>
                       <SelectValue placeholder="Selecione a categoria" />
                     </SelectTrigger>
                   </FormControl>
@@ -202,34 +185,47 @@ export default function ProductForm({
             )}
           />
 
+          <div className="space-y-2">
+            <FormLabel>Nova Categoria</FormLabel>
+            <div className="flex gap-2">
+              <Input
+                placeholder={`Criar categoria para ${typeLabels[itemType]}`}
+                value={newCategoryName}
+                onChange={(event) => setNewCategoryName(event.target.value)}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  void handleCreateCategory().catch((error) => {
+                    alert((error as Error).message);
+                  });
+                }}
+                disabled={isCreatingCategory || !newCategoryName.trim()}
+              >
+                {isCreatingCategory ? "Criando..." : "Criar"}
+              </Button>
+            </div>
+          </div>
+
           <FormField
             control={form.control}
             name="locationId"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Localização *</FormLabel>
-                <Select 
-                  onValueChange={field.onChange} 
-                  defaultValue={field.value}
-                  value={field.value}
-                >
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
-                    <SelectTrigger data-testid="select-location">
+                    <SelectTrigger>
                       <SelectValue placeholder="Selecione o local" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {locations.length > 0 ? (
-                      locations.map((location) => (
-                        <SelectItem key={location.id} value={location.id}>
-                          {location.name}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value="no-location" disabled>
-                        Nenhum local disponível
+                    {locations.map((location) => (
+                      <SelectItem key={location.id} value={location.id}>
+                        {location.name}
                       </SelectItem>
-                    )}
+                    ))}
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -242,15 +238,9 @@ export default function ProductForm({
             name="quantity"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Quantidade em Estoque *</FormLabel>
+                <FormLabel>Quantidade *</FormLabel>
                 <FormControl>
-                  <Input 
-                    type="number" 
-                    min="0"
-                    placeholder="0"
-                    {...field} 
-                    data-testid="input-quantity" 
-                  />
+                  <Input type="number" min="0" placeholder="0" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -264,13 +254,7 @@ export default function ProductForm({
               <FormItem>
                 <FormLabel>Estoque Mínimo *</FormLabel>
                 <FormControl>
-                  <Input 
-                    type="number" 
-                    min="0"
-                    placeholder="0"
-                    {...field} 
-                    data-testid="input-min-quantity" 
-                  />
+                  <Input type="number" min="0" placeholder="0" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -284,14 +268,7 @@ export default function ProductForm({
               <FormItem>
                 <FormLabel>Preço Unitário (R$) *</FormLabel>
                 <FormControl>
-                  <Input 
-                    type="number" 
-                    step="0.01" 
-                    min="0"
-                    placeholder="0.00"
-                    {...field} 
-                    data-testid="input-price" 
-                  />
+                  <Input type="number" step="0.01" min="0" placeholder="0.00" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -306,11 +283,10 @@ export default function ProductForm({
             <FormItem>
               <FormLabel>Descrição</FormLabel>
               <FormControl>
-                <Textarea 
-                  placeholder="Digite uma descrição detalhada do produto..." 
-                  className="resize-none min-h-[100px]" 
-                  {...field} 
-                  data-testid="input-description"
+                <Textarea
+                  placeholder="Descreva o item"
+                  className="resize-none min-h-[100px]"
+                  {...field}
                 />
               </FormControl>
               <FormMessage />
@@ -318,42 +294,23 @@ export default function ProductForm({
           )}
         />
 
-        <div className="bg-muted/50 p-4 rounded-lg">
-          <h4 className="font-medium text-sm mb-2">Informações:</h4>
-          <ul className="text-xs text-muted-foreground space-y-1">
-            <li>• A categoria define o tipo do produto (limpeza, ferramenta, insumo, etc.)</li>
-            <li>• Campos marcados com * são obrigatórios</li>
-            <li>• O código pode ser gerado automaticamente</li>
-          </ul>
+        <div className="bg-muted/50 p-4 rounded-lg text-sm text-muted-foreground">
+          O patrimônio agora é preenchido manualmente e as categorias podem ser criadas
+          direto nesta tela para este tipo de cadastro.
         </div>
 
         <div className="flex gap-3 justify-end pt-4 border-t">
           {onCancel && (
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={onCancel} 
-              data-testid="button-cancel"
-              disabled={isSubmitting}
-            >
+            <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
               Cancelar
             </Button>
           )}
-          <Button 
-            type="submit" 
-            data-testid="button-submit"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                Salvando...
-              </>
-            ) : isEditing ? (
-              'Atualizar Produto'
-            ) : (
-              'Cadastrar Produto'
-            )}
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting
+              ? "Salvando..."
+              : isEditing
+                ? "Atualizar Cadastro"
+                : "Cadastrar Item"}
           </Button>
         </div>
       </form>
