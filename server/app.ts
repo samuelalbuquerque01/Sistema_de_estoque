@@ -3,7 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import path from "path";
 import fs from "fs";
-import { registerRoutes } from "./routes/index.js";
+import { registerRoutes } from "./routes/index.ts";
 
 export function createApp(): Express {
   const app = express();

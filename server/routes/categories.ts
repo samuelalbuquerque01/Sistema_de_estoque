@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { z } from "zod";
-import { storage } from "../storage.js";
-import { db } from "../db.js";
-import { categories, inventoryItemTypeSchema } from "../../shared/schema.js";
+import { storage } from "../storage.ts";
+import { db } from "../db.ts";
+import { categories, inventoryItemTypeSchema } from "../../shared/schema.ts";
 import { eq } from "drizzle-orm";
 
 const categoryRoutes = Router();

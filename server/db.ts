@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import * as schema from "../shared/schema.js";
+import * as schema from "../shared/schema.ts";
 
 const localFallbackUrl = "postgresql://postgres:postgres@localhost:5432/neuropsicocentro";
 const databaseUrl =

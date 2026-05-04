@@ -9,15 +9,15 @@ import {
   type Empresa, type InsertEmpresa, type EmailVerificacao, type InsertEmailVerificacao,
   type CadastroUsuario, type CadastroEmpresa, type InventoryItemType,
   inventoryItemTypes
-} from "../shared/schema.js";
+} from "../shared/schema.ts";
 import { randomUUID } from "crypto";
-import { db } from "./db.js";
+import { db } from "./db.ts";
 import { 
   users, products, categories, locations, movements, inventories, 
   inventoryCounts, reports, importHistory, nfeProducts, nfeData,
   empresas, emailVerificacoes, generalProducts, equipmentProducts,
   supplyProducts, toolProducts, cleaningProducts
-} from "../shared/schema.js";
+} from "../shared/schema.ts";
 import { eq, and, desc, sql } from "drizzle-orm";
 
 export interface IStorage {
