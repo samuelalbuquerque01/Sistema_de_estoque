@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import app from "../server/app.ts";
+import app from "../server/app.js";
 
 function buildQueryString(url: URL): string {
   const params = new URLSearchParams(url.search);

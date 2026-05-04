@@ -1,8 +1,8 @@
 ﻿import { Router } from "express";
 import multer from "multer";
 import { z } from "zod";
-import { storage } from "../storage.ts";
-import { parseNfeXml } from "../services/nfeXmlService.ts";
+import { storage } from "../storage.js";
+import { parseNfeXml } from "../services/nfeXmlService.js";
 
 const upload = multer({ storage: multer.memoryStorage() });
 const importRoutes = Router();
